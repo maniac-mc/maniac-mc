@@ -51,16 +51,14 @@ contains
                 ! Compute the energy for residue_1, molecule_1
                 call SingleMolPairwiseEnergy(box, residue_type_1, &
                     molecule_index_1, e_non_coulomb, e_coulomb)
-                
-                ! Remove double couting
-                e_coulomb = e_coulomb / two
-                e_non_coulomb = e_non_coulomb / two
 
                 ! Add residue_1, molecule_1 energy to the total pairwise energy
                 energy%non_coulomb = energy%non_coulomb + e_non_coulomb
                 energy%coulomb = energy%coulomb + e_coulomb
             end do
         end do
+
+        write(*,*) energy%non_coulomb, energy%coulomb
 
     end subroutine ComputePairwiseEnergy
 
@@ -104,28 +102,27 @@ contains
                     if ((molecule_index_1 == molecule_index_2) .and. &
                         (residue_type_1 == residue_type_2)) cycle
 
+                    ! Enforce ordering to avoid double-counting
+                    if ((residue_type_2 < residue_type_1) .or. &
+                        ((residue_type_2 == residue_type_1) .and. (molecule_index_2 <= molecule_index_1))) cycle
+
                     ! Loop over all side of the selected molecule 2
                     do atom_index_2 = 1, nb%atom_in_residue(residue_type_2)
+
+                        ! Read pair parameters
+                        sigma = coeff%sigma(residue_type_1, residue_type_2, atom_index_1, atom_index_2)                            
+                        epsilon = coeff%epsilon(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
+                        charge_1 = primary%atom_charges(residue_type_1, atom_index_1)
+                        charge_2 = primary%atom_charges(residue_type_2, atom_index_2)
 
                         distance = ComputeDistance(box, residue_type_1, molecule_index_1, atom_index_1, &
                                    residue_type_2, molecule_index_2, atom_index_2)
 
-                        if (distance < input%real_space_cutoff) then
-                            ! LJ potential
-                            sigma = coeff%sigma(residue_type_1, residue_type_2, atom_index_1, atom_index_2)                            
-                            epsilon = coeff%epsilon(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
-                            r6 = (sigma / distance)**6
-                            r12 = r6 * r6
-                            e_non_coulomb = e_non_coulomb + four * epsilon * (r12 - r6)
-                        end if
+                        ! Update non-Coulomb energy
+                        e_non_coulomb = e_non_coulomb + LennardJonesEnergy(distance, sigma, epsilon)
 
-                        ! Use Coulomb potential
-                        charge_1 = primary%atom_charges(residue_type_1, atom_index_1)
-                        charge_2 = primary%atom_charges(residue_type_2, atom_index_2)
-
-                        if ((abs(charge_1) < error) .or. (abs(charge_2) < error)) cycle
-
-                        e_coulomb = e_coulomb + charge_1 * charge_2 * (erfc(ewald%alpha * distance)) / distance
+                        ! Update Coulomb energy
+                        e_coulomb = e_coulomb + CoulombEnergy(distance, charge_1, charge_2)
 
                     end do
                 end do
@@ -139,28 +136,57 @@ contains
 
     end subroutine SingleMolPairwiseEnergy
 
-    ! !-----------------------------------------------------------
-    ! ! Function: ComputeLJPairEnergy
-    ! ! Purpose: Compute Lennard-Jones energy for a single atom pair.
-    ! !-----------------------------------------------------------
-    ! pure function ComputeLJPairEnergy(distance, sigma, epsilon, cutoff) result(e_lj)
+    !------------------------------------------------------------------------------
+    ! Function to compute Lennard-Jones interaction energy
+    !------------------------------------------------------------------------------
+    pure function LennardJonesEnergy(distance, sigma, epsilon) result(energy)
 
-    !     use, intrinsic :: iso_fortran_env, only: real64
-    !     implicit none
+        implicit none
 
-    !     real(real64), intent(in) :: distance, sigma, epsilon, cutoff
-    !     real(real64) :: e_lj
+        ! Input variables
+        real(real64), intent(in) :: distance   ! Distance between the two atoms
+        real(real64), intent(in) :: sigma      ! Lennard-Jones sigma parameter (size, Å)
+        real(real64), intent(in) :: epsilon    ! Lennard-Jones epsilon parameter (well depth, eV or kJ/mol depending on units)
 
-    !     real(real64) :: r6, r12
+        ! Local variables
+        real(real64) :: r6      ! (σ / r)^6 term of the LJ potential
+        real(real64) :: r12     ! (σ / r)^12 term of the LJ potential
+        real(real64) :: energy  ! Computed Lennard-Jones energy contribution
 
-    !     e_lj = 0.0_real64
-    !     if (distance < cutoff .and. epsilon > 0.0_real64) then
-    !         r6 = (sigma / distance)**6
-    !         r12 = r6 * r6
-    !         e_lj = 4.0_real64 * epsilon * (r12 - r6)
-    !     end if
+        if (distance >= input%real_space_cutoff) then
+            energy = zero
+        else
+            r6 = (sigma / distance)**6
+            r12 = r6 * r6
+            energy = four * epsilon * (r12 - r6)
+        end if
 
-    ! end function ComputeLJPairEnergy
+    end function LennardJonesEnergy
+
+    !------------------------------------------------------------------------------
+    ! Function to compute Coulomb interaction energy (Ewald direct-space term)
+    !------------------------------------------------------------------------------
+    pure function CoulombEnergy(distance, charge1, charge2) result(energy)
+
+        implicit none
+
+        ! Input variables
+        real(real64), intent(in) :: distance   ! Distance between the two atoms
+        real(real64), intent(in) :: charge1    ! Atomic partial charge of atom 1 (in e)
+        real(real64), intent(in) :: charge2    ! Atomic partial charge of atom 2 (in e)
+
+        ! Local variable
+        real(real64) :: energy   ! Computed Coulomb energy contribution (unscaled)
+
+        if ((abs(charge1) < error) .or. (abs(charge2) < error)) then
+            energy = zero
+        else
+            ! Direct-space Coulomb potential with Ewald damping:
+            ! V(r) = (q1*q2) * erfc(alpha * r) / r
+            energy = charge1 * charge2 * (erfc(ewald%alpha * distance)) / distance
+        end if
+
+    end function CoulombEnergy
 
     subroutine ComputeEwaldSelf(box)
 
