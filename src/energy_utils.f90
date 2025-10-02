@@ -58,8 +58,6 @@ contains
             end do
         end do
 
-        write(*,*) energy%non_coulomb, energy%coulomb
-
     end subroutine ComputePairwiseEnergy
 
     !------------------------------------------------------------------------------
@@ -115,6 +113,7 @@ contains
                         charge_1 = primary%atom_charges(residue_type_1, atom_index_1)
                         charge_2 = primary%atom_charges(residue_type_2, atom_index_2)
 
+                        ! Calculate the distance, accouting for periodic boundary conditions
                         distance = ComputeDistance(box, residue_type_1, molecule_index_1, atom_index_1, &
                                    residue_type_2, molecule_index_2, atom_index_2)
 
@@ -128,9 +127,6 @@ contains
                 end do
             end do
         end do
-
-        ! Re-scale energy
-        e_coulomb = e_coulomb * EPS0_INV_eVA / KB_eVK
 
         return
 
@@ -184,6 +180,10 @@ contains
             ! Direct-space Coulomb potential with Ewald damping:
             ! V(r) = (q1*q2) * erfc(alpha * r) / r
             energy = charge1 * charge2 * (erfc(ewald%alpha * distance)) / distance
+
+            ! Re-scale energy
+            energy = energy * EPS0_INV_eVA / KB_eVK
+        
         end if
 
     end function CoulombEnergy
