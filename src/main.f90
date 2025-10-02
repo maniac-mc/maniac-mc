@@ -27,7 +27,7 @@ program MANIAC
     ! Simulation preparation
     !==============================
     call PrepareSimulationParameters()  ! Set up MC parameters, initial checks
-    call ComputeSystemEnergy()          ! Compute initial total energy
+    call ComputeSystemEnergy(primary)   ! Compute initial total energy
 
 !     !==============================
 !     ! Monte Carlo simulation
