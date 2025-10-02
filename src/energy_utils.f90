@@ -21,7 +21,7 @@ contains
 
         ! Compute each energy components
         call ComputePairwiseEnergy(box)
-        call ComputeEwaldSelf(box)
+        call ComputeEwaldSelf()
         call ComputeEwaldRecip()
 
         ! Calculate total energy
@@ -84,7 +84,6 @@ contains
         integer :: molecule_index_2
         integer :: residue_type_2
         real(real64) :: distance
-        real(real64) :: r6, r12                     ! r^n for LJ potential calculations
         real(real64) :: sigma, epsilon              ! Epsilon and sigma LJ potential calculations
         real(real64) :: charge_1, charge_2          ! Charge for Coulomb interactions
 
@@ -209,9 +208,6 @@ contains
 
         implicit none
 
-        integer :: residue_type_1
-        integer :: molecule_index_1
-
         ! Step 1: Precompute weighting coefficients that depend only on |k|-vectors.
         ! These account for the Gaussian charge screening used in the Ewald method.
         call InitializeReciprocalWeights()
@@ -245,12 +241,9 @@ contains
     !   so it is constant throughout the simulation for fixed charges.
     ! - Must be combined with reciprocal-space and real-space terms to obtain the
     !   full Ewald electrostatic energy.
-    subroutine ComputeEwaldSelf(box)
+    subroutine ComputeEwaldSelf()
 
         implicit none
-
-        ! Input arguments
-        type(type_box), intent(inout) :: box
 
         ! Local variables
         integer :: residue_type_1
