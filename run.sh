@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit on error
 
-case="ZIF8-CH4O-H2O"
+case="LJ-gas"
 
 base_energy="mc-topology/testcase-energy"
 base_adsorption="mc-topology/testcase-adsorption"
@@ -50,9 +50,9 @@ case "$case" in
     ;;
   "LJ-gas")
     folder="$base_energy/LJ-gas"
-    input="$folder/lj.maniac"
-    data="$folder/lj.data"
-    inc="$folder/lj.inc"
+    input="$folder/input.maniac"
+    data="$folder/topology.data"
+    inc="$folder/parameters.inc"
     res=""
     ;;
   "H2O-gas")

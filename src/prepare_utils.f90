@@ -119,6 +119,12 @@ contains
 
     end subroutine SetupEwald
 
+    !--------------------------------------------------------------------
+    ! Subroutine: AdjustRealSpaceCutoff
+    ! Purpose   : Ensure that the user-specified real-space cutoff fits
+    !             within the periodic simulation box. If it is too large,
+    !             reduce it to half the minimum box dimension.
+    !--------------------------------------------------------------------
     subroutine AdjustRealSpaceCutoff(do_log)
 
         logical, intent(in) :: do_log
@@ -136,11 +142,22 @@ contains
         end if
     end subroutine AdjustRealSpaceCutoff
 
+    !--------------------------------------------------------------------
+    ! Subroutine: ClampTolerance
+    ! Purpose   : Limit the Ewald accuracy tolerance to a maximum value of 0.5.
+    !--------------------------------------------------------------------
     subroutine ClampTolerance()
         ! Clamp accuracy tolerance to max 0.5
-        input%ewald_tolerance = MIN(abs(input%ewald_tolerance), 0.5_real64)
+        input%ewald_tolerance = min(abs(input%ewald_tolerance), 0.5_real64)
     end subroutine ClampTolerance
 
+    !--------------------------------------------------------------------
+    ! Subroutine: ComputeEwaldParameters
+    ! Purpose   : Compute the main Ewald summation parameters:
+    !             - screening factor
+    !             - damping parameter (alpha)
+    !             - Fourier-space precision
+    !--------------------------------------------------------------------
     subroutine ComputeEwaldParameters()
         ! Intermediate tolerance factor for screening width
         ewald%screening_factor = sqrt(abs(log(input%ewald_tolerance * input%real_space_cutoff)))
@@ -154,9 +171,14 @@ contains
                                 (2.0_real64 * ewald%screening_factor * ewald%alpha)**2))
     end subroutine ComputeEwaldParameters
 
+    !--------------------------------------------------------------------
+    ! Subroutine: ComputeFourierIndices
+    ! Purpose   : Compute the maximum Fourier indices (kmax) in the X, Y, Z
+    !             directions, and the total number of reciprocal lattice vectors.
+    !--------------------------------------------------------------------
     subroutine ComputeFourierIndices()
         ! Compute maximum Fourier indices in X, Y, Z directions
-        ewald%kmax = NINT(0.25_real64 + primary%metrics(1:3) * ewald%alpha * ewald%fourier_precision / PI)
+        ewald%kmax = nint(0.25_real64 + primary%metrics(1:3) * ewald%alpha * ewald%fourier_precision / PI)
         ewald%num_recip_vectors = (ewald%kmax(1) + 1) * (2 * ewald%kmax(2) + 1) * (2 * ewald%kmax(3) + 1)
     end subroutine ComputeFourierIndices
 
