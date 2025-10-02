@@ -1,0 +1,32 @@
+# Ignore executables
+bin/*
+
+# Ignore object files
+**/build/*
+
+# Ignore auto-generated files
+**/include/*
+
+# Ignore produced files
+**/outputs/*
+**/*.dat
+**/log.maniac
+
+# Ignore backup and temporary files (optional but useful)
+*~
+*.swp
+*.tmp
+fort.*
+dependencies.d
+*.o
+
+# Python stuff
+**/__pycache__
+
+# LAMMPS stuffs
+**/log.lammps
+**/*.lammpstrj
+
+# Documentation
+docs/build/*
+docs/source/xml/*
