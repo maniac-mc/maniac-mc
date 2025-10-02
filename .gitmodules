@@ -1,0 +1,3 @@
+[submodule "mc-topology"]
+	path = mc-topology
+	url = git@github.com:maniac-mc/mc-topology.git
