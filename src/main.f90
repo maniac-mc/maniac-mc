@@ -34,10 +34,10 @@ program MANIAC
 !     !==============================
 !     call MonteCarloLoop()               ! Main MC loop
 
-!     !==============================
-!     ! Final reporting and cleanup
-!     !==============================
-!     call FinalReport()                  ! Print energy and statistics
-!     call CloseOutput()                  ! Close files and finalize
+    !==============================
+    ! Final reporting and cleanup
+    !==============================
+    call FinalReport()                  ! Print energy and statistics
+    call CloseOutput()                  ! Close files and finalize
     
 end program MANIAC
