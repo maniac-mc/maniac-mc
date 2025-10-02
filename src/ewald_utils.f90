@@ -10,58 +10,71 @@ module ewald_utils
 
 contains
 
+    !------------------------------------------------------------------------------
+    ! Precomputes the reciprocal-space weighting factors for the Ewald summation.
+    ! Uses a 3x3 matrix to store the reciprocal lattice vectors and computes the
+    ! magnitude of each k-vector efficiently. Only done once at the start of the simulation.
+    !------------------------------------------------------------------------------
     subroutine InitializeReciprocalWeights()
 
         implicit none
 
-        real(real64) :: k_squared
-        integer :: number_of_kpoints
-        real(real64) :: kx_vector_x, kx_vector_y, kx_vector_z
-        real(real64) :: ky_vector_x, ky_vector_y, ky_vector_z
-        real(real64) :: kz_vector_x, kz_vector_y, kz_vector_z
-        integer :: kx_idx, ky_idx, kz_idx ! Index for reciprocal lattice vector x-y-z-component
+        ! Local variables
+        real(real64) :: k_squared      ! Normalized squared k-vector for unit-sphere check
+        real(real64) :: k_squared_mag  ! Squared magnitude of the k-vector
+        integer :: number_of_kpoints   ! Counter for valid k-vectors
+        integer :: kx_idx, ky_idx, kz_idx  ! Reciprocal lattice indices
+        real(real64) :: kvec(3)        ! 3D reciprocal lattice vector
+        real(real64) :: kidx_scaled(3) ! Scaled k-vector indices for unit-sphere filter
+        real(real64), dimension(3,3) :: kvec_matrix  ! Columns are reciprocal lattice vectors b1, b2, b3
+
+        ! Store reciprocal lattice vectors as columns of a 3x3 matrix
+        kvec_matrix = TWOPI * reshape(primary%reciprocal, shape(kvec_matrix))
 
         ! Computes a weighting factor for each reciprocal lattice vector
         ! Only needs to be done once at the start of the simulations
         number_of_kpoints = 0
+
+        ! Loop over all reciprocal lattice indices within kmax limits
         do kx_idx = 0, ewald%kmax(1)
-            kx_vector_x = TWOPI * dble(kx_idx) * primary%reciprocal(1,1)
-            kx_vector_y = TWOPI * dble(kx_idx) * primary%reciprocal(2,1)
-            kx_vector_z = TWOPI * dble(kx_idx) * primary%reciprocal(3,1)
             do ky_idx = -ewald%kmax(2), ewald%kmax(2) 
-                ky_vector_x = kx_vector_x + TWOPI * dble(ky_idx) * primary%reciprocal(1,2)
-                ky_vector_y = kx_vector_y + TWOPI * dble(ky_idx) * primary%reciprocal(2,2)
-                ky_vector_z = kx_vector_z + TWOPI * dble(ky_idx) * primary%reciprocal(3,2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3) 
-                    kz_vector_x = ky_vector_x + TWOPI * dble(kz_idx) * primary%reciprocal(1,3)
-                    kz_vector_y = ky_vector_y + TWOPI * dble(kz_idx) * primary%reciprocal(2,3)
-                    kz_vector_z = ky_vector_z + TWOPI * dble(kz_idx) * primary%reciprocal(3,3)
 
-                    ! Square root of k
-                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
-                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
-                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
+                    ! Skip k=0 vector
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
 
-                    ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1._real64) cycle
+                    ! Compute the k-vector
+                    kvec = dble(kx_idx)*kvec_matrix(:,1) + &
+                        dble(ky_idx)*kvec_matrix(:,2) + &
+                        dble(kz_idx)*kvec_matrix(:,3)
 
+                    ! Normalized k² to filter vectors outside the unit sphere
+                    kidx_scaled = [dble(kx_idx)/dble(ewald%kmax(1)), &
+                                dble(ky_idx)/dble(ewald%kmax(2)), &
+                                dble(kz_idx)/dble(ewald%kmax(3))]
+
+                    k_squared = sum(kidx_scaled**2)
+                    if (k_squared > one) cycle
+
+                    ! Weighting factor for this k-vector
+                    k_squared_mag = dot_product(kvec, kvec)
                     number_of_kpoints = number_of_kpoints + 1
-                    ewald%recip_constants(number_of_kpoints) = &
-                        EXP(-(kz_vector_x**2 + kz_vector_y**2 + kz_vector_z**2) / &
-                        (4.0_real64 * ewald%alpha**2)) / (kz_vector_x**2 + kz_vector_y**2 + kz_vector_z**2)
+                    ewald%recip_constants(number_of_kpoints) = exp(-k_squared_mag/(four*ewald%alpha**2)) / k_squared_mag
+
                 end do
             end do
         end do
 
-        if (number_of_kpoints > ewald%num_recip_vectors) stop
-
-        return
+        ! Sanity check
+        if (number_of_kpoints > ewald%num_recip_vectors) then
+            call AbortRun("Too many reciprocal vectors")
+        end if
 
     end subroutine InitializeReciprocalWeights
 
     ! Precompute complex exponential factors to be used repeatedly in
     ! reciprocal-space calculations.
-    subroutine ComputeFourierTerms_singlemol(residue_type, molecule_index)
+    subroutine SingleMolFourierTerms(residue_type, molecule_index)
 
         implicit none
 
@@ -115,7 +128,33 @@ contains
             end do
         end do
 
-    end subroutine ComputeFourierTerms_singlemol
+    end subroutine SingleMolFourierTerms
+
+    !------------------------------------------------------------------------------
+    ! ComputeAllFourierTerms
+    ! Computes the Fourier structure factors e^(i·k·r) for all atoms in all molecules.
+    ! These are used in the reciprocal-space part of the Ewald summation to avoid
+    ! redundant calculations of complex exponentials during the k-sum.
+    !------------------------------------------------------------------------------
+    subroutine ComputeAllFourierTerms()
+        implicit none
+
+        integer :: residue_type_1
+        integer :: molecule_index_1
+
+        ! Loop over all residue types
+        do residue_type_1 = 1, nb%type_residue
+
+            ! Loop over all molecules of this residue type
+            do molecule_index_1 = 1, primary%num_residues(residue_type_1)
+
+                ! Compute Fourier terms for a single molecule
+                call SingleMolFourierTerms(residue_type_1, molecule_index_1)
+
+            end do
+        end do
+
+    end subroutine ComputeAllFourierTerms
 
     subroutine ComputeReciprocalEnergy(u_recipCoulomb)
 
@@ -136,9 +175,9 @@ contains
         do kx_idx = 0, ewald%kmax(1)
 
             if (kx_idx == 0) then
-                form_factor = 1.0_real64
+                form_factor = one
             else
-                form_factor = 2.0_real64
+                form_factor = two
             end if
 
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
@@ -149,10 +188,10 @@ contains
                                     (dble(kz_idx)/dble(ewald%kmax(3)))**2
 
                     ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1._real64) cycle
+                    if (abs(k_squared) < error .OR. k_squared > one) cycle
 
                     number_of_kpoints = number_of_kpoints + 1
-                    ewald%recip_amplitude(number_of_kpoints) = (0.0_real64, 0.0_real64)
+                    ewald%recip_amplitude(number_of_kpoints) = (zero, zero)
 
                     ! Loop over all molecule types 1
                     do residue_type = 1, nb%type_residue
@@ -178,36 +217,6 @@ contains
         u_recipCoulomb = u_recipCoulomb * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
 
     end subroutine ComputeReciprocalEnergy
-
-    !------------------------------------------------------------------------------
-    ! ComputeEwaldSelfInteraction_singlemol
-    ! Computes the Ewald self-energy correction for a single molecule.
-    !------------------------------------------------------------------------------
-    subroutine ComputeEwaldSelfInteraction_singlemol(residue_type, self_energy_1)
-        
-        implicit none
-
-        ! Input arguments
-        integer, intent(in) :: residue_type
-        real(real64), intent(out) :: self_energy_1
-
-        ! Local variables
-        integer :: atom_index_1
-        real(real64) :: charge_1
-
-        self_energy_1 = 0.0_real64
-        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
-            charge_1 = primary%atom_charges(residue_type, atom_index_1)
-            if (abs(charge_1) < 1.0D-10) cycle
-            self_energy_1 = self_energy_1 - ewald%alpha / SQRTPI * charge_1**2
-        end do
-
-        ! Scale by constants EPS0_INV_eVA and KB_eVK
-        self_energy_1 = self_energy_1 * EPS0_INV_eVA / KB_eVK 
-
-        return
-
-    end subroutine ComputeEwaldSelfInteraction_singlemol
 
     !------------------------------------------------------------------------------
     ! ComputeIntraResidueRealCoulombEnergy_singlemol

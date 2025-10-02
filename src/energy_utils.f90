@@ -216,13 +216,9 @@ contains
         ! These account for the Gaussian charge screening used in the Ewald method.
         call InitializeReciprocalWeights()
 
-        ! Step 2: Build Fourier terms e^(i·k·r) for every atom in the system.
+        ! Step 2: Build Fourier terms e^(i·k·r) for every atom inthe system.
         ! This avoids recomputing expensive exponentials during the k-sum.
-        do residue_type_1 = 1, nb%type_residue
-            do molecule_index_1 = 1, primary%num_residues(residue_type_1)
-                call ComputeFourierTerms_singlemol(residue_type_1, molecule_index_1)
-            end do
-        end do
+        call ComputeAllFourierTerms()
 
         ! Step 3: Compute reciprocal-space electrostatic energy using the structure
         ! factors and the precomputed reciprocal weighting coefficients.
@@ -249,30 +245,70 @@ contains
     !   so it is constant throughout the simulation for fixed charges.
     ! - Must be combined with reciprocal-space and real-space terms to obtain the
     !   full Ewald electrostatic energy.
-    !------------------------------------------------------------------------------
     subroutine ComputeEwaldSelf(box)
+
         implicit none
+
+        ! Input arguments
         type(type_box), intent(inout) :: box
 
+        ! Local variables
         integer :: residue_type_1
         real(real64) :: e_ewald_self
 
-        ! Loop over residue types
+        ! Loop over all residue types
         do residue_type_1 = 1, nb%type_residue
 
-            ! Step 1: Compute self-interaction for a *single* molecule
+            ! Compute self-energy for a single molecule of this residue type
             e_ewald_self = zero
-            call ComputeEwaldSelfInteraction_singlemol(residue_type_1, e_ewald_self)
+            call SingleMolEwaldSelf(residue_type_1, e_ewald_self)
 
-            ! Step 2: Scale by number of molecules of this residue type
+            ! Multiply by the number of molecules of this residue type
             e_ewald_self = e_ewald_self * primary%num_residues(residue_type_1)
 
-            ! Step 3: Add to the total self-interaction energy
+            ! Accumulate into total self-energy
             energy%ewald_self = energy%ewald_self + e_ewald_self
 
         end do
 
     end subroutine ComputeEwaldSelf
 
+    !------------------------------------------------------------------------------
+    ! Computes the Ewald self-energy correction for a single molecule.
+    !
+    ! In the Ewald summation, each point charge interacts with an artificial
+    ! Gaussian charge distribution representing itself. This leads to an unphysical
+    ! self-interaction energy that must be subtracted to obtain the correct total
+    ! electrostatic energy.
+    !------------------------------------------------------------------------------
+    subroutine SingleMolEwaldSelf(residue_type, self_energy_1)
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type           ! Residue type for the molecule
+        real(real64), intent(out) :: self_energy_1    ! Computed self-energy for this molecule
+
+        ! Local variables
+        integer :: atom_index_1
+        real(real64) :: charge_1
+
+        ! Initialize self-energy accumulator
+        self_energy_1 = zero
+
+        ! Loop over all atoms in the residue
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
+            charge_1 = primary%atom_charges(residue_type, atom_index_1)
+            
+            ! Skip atoms with negligible charge
+            if (abs(charge_1) < error) cycle
+
+            ! Add the self-energy contribution of this atom
+            self_energy_1 = self_energy_1 - ewald%alpha / SQRTPI * charge_1**2
+        end do
+
+        ! Convert to simulation units
+        self_energy_1 = self_energy_1 * EPS0_INV_eVA / KB_eVK
+
+    end subroutine SingleMolEwaldSelf
 
 end module energy_utils
