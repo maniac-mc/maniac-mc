@@ -1,0 +1,7 @@
+module version_module
+
+    implicit none
+    character(len=*), parameter :: version = "@VERSION@"
+    character(len=*), parameter :: git_commit = "@GIT_COMMIT@"
+
+end module version_module
