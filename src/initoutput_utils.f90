@@ -21,7 +21,7 @@ contains
         call EnsureDirectoryExists(output_path)
 
         ! Open log file for writing, replacing any existing file
-        call OpenLogFile(output_path)
+        call OpenLogFile(output_path, 'log.maniac')
 
         ! Write header to log
         call WriteHeader()
@@ -32,7 +32,7 @@ contains
     ! Ensure directory exists (create if missing)
     !-------------------------------------------------------
     subroutine EnsureDirectoryExists(path)
-    
+
         character(len=*), intent(in) :: path
         character(len=200) :: command
         integer :: exit_status
@@ -47,12 +47,20 @@ contains
     !-------------------------------------------------------
     ! Open log file
     !-------------------------------------------------------
-    subroutine OpenLogFile(path)
+    subroutine OpenLogFile(path, filename)
         character(len=*), intent(in) :: path
+        character(len=*), intent(in), optional :: filename
+        character(len=200) :: logname
         integer :: ios
 
-        open(unit=out_unit, file=trim(path)//'log.maniac', status='replace', iostat=ios)
-        if (ios /= 0) call AbortRun("Failed to open log file: "//trim(path)//'log.maniac', ios)
+        if (present(filename)) then
+            logname = filename
+        else
+            logname = 'log.maniac'
+        end if
+
+        open(unit=out_unit, file=trim(path)//trim(logname), status='replace', iostat=ios)
+        if (ios /= 0) call AbortRun("Failed to open log file: "//trim(path)//trim(logname), ios)
     end subroutine OpenLogFile
 
     !---------------------------------------------------------------------------
