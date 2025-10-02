@@ -4,6 +4,7 @@ program MANIAC
     use initoutput_utils
     use parameters_parser
     use prepare_utils
+    use energy_utils
     use input_parser
     use data_parser
 
@@ -26,7 +27,7 @@ program MANIAC
     ! Simulation preparation
     !==============================
     call PrepareSimulationParameters()  ! Set up MC parameters, initial checks
-    ! call ComputeSystemEnergy()          ! Compute initial total energy
+    call ComputeSystemEnergy()          ! Compute initial total energy
 
 !     !==============================
 !     ! Monte Carlo simulation
