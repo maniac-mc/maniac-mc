@@ -1,5 +1,9 @@
 # MANIAC-MC
 
+[![Build](https://github.com/maniac-mc/maniac-mc/actions/workflows/tests.yml/badge.svg)](https://github.com/maniac-mc/maniac-mc/actions/workflows/tests.yml)
+![License](https://img.shields.io/github/license/maniac-mc/maniac-mc?color=blue)
+![Last Commit](https://img.shields.io/github/last-commit/maniac-mc/maniac-mc)
+
 <img
     src="https://raw.githubusercontent.com/maniac-mc/mc-visuals/refs/heads/main/gallery/ZIF8-H2O/system.png"
     width="30%" align="right"/>
