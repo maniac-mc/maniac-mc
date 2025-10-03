@@ -124,8 +124,6 @@ contains
                         ! Update non-Coulomb energy
                         e_non_coulomb = e_non_coulomb + LennardJonesEnergy(distance, sigma, epsilon)
 
-                        write(*,*) distance, LookupTabulated(r6_table, distance)
-
                         ! Update Coulomb energy
                         e_coulomb = e_coulomb + CoulombEnergy(distance, charge_1, charge_2)
 

@@ -1,13 +1,14 @@
 program MANIAC
 
-    use cli_utils
-    use initoutput_utils
+    use montecarlo_module
     use parameters_parser
+    use initoutput_utils
     use tabulated_utils
     use prepare_utils
     use energy_utils
     use input_parser
     use data_parser
+    use cli_utils
 
     implicit none
 
@@ -25,8 +26,8 @@ program MANIAC
     call PrecomputeTable()              ! Precompute tables for faster calculation
     call ComputeSystemEnergy(primary)   ! Compute initial total energy
 
-!     ! Step 4 :Monte Carlo simulation
-!     call MonteCarloLoop()               ! Main MC loop
+    ! Step 4 :Monte Carlo simulation
+    call MonteCarloLoop()               ! Main MC loop
 
     ! Step 5 :Final reporting and cleanup
     call FinalReport()                  ! Print energy and statistics
