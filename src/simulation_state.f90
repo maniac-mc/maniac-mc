@@ -6,14 +6,15 @@ module simulation_state
 
     implicit none
 
-    character(len=200) :: output_path       ! Path for saving outputs
-    character(len=200) :: maniac_file  ! Main input file
-    character(len=200) :: data_file    ! Topology/data file
-    character(len=200) :: inc_file     ! Parameters include file
-    character(len=200) :: res_file     ! Optional reservoir file
-    integer :: current_block                ! Current Monte Carlo block number
-    integer :: current_step                 ! Current Monte Carlo step within the block
-    logical :: has_reservoir                ! Wether a reservoir was provided or
+    character(len=200) :: output_path   ! Path for saving outputs
+    character(len=200) :: maniac_file   ! Main input file
+    character(len=200) :: data_file     ! Topology/data file
+    character(len=200) :: inc_file      ! Parameters include file
+    character(len=200) :: res_file      ! Optional reservoir file
+    integer :: current_block            ! Current Monte Carlo block number
+    integer :: current_step             ! Current Monte Carlo step within the block
+    integer :: out_unit = 10            ! Default log file unit
+    logical :: has_reservoir            ! Wether a reservoir was provided or
 
     type :: counter_type
         integer :: rotations = 0             ! Counter for rotational Monte Carlo moves
@@ -170,9 +171,21 @@ module simulation_state
         complex(8), dimension(:, :), allocatable :: phase_factor_z_old ! Old Fourier terms along Z
         complex(8), dimension(:), allocatable :: recip_amplitude ! Fourier coefficients of charge density or potential
         complex(8), dimension(:), allocatable :: recip_amplitude_old ! Old fourier coefficients of charge density or potential
+        ! complex(8), allocatable :: recip_factor(:, :, :, :) ! (residue, molecule, atom, k_index)
     end type type_ewald
     type(type_ewald) :: ewald
 
-    integer :: out_unit = 10      ! Default log file unit
+    ! For tabulating potential
+    type :: tabulated
+        ! Table properties
+        real(real64), allocatable :: x(:)       ! Grid points (r, k^2, etc.)
+        real(real64), allocatable :: f(:)       ! Function values
+        real(real64) :: dx                      ! Grid spacing
+        integer :: n                            ! Number of points
+        logical :: initialized = .false.        ! Flag to indicate table is ready
+    end type tabulated
+    type(tabulated) :: erfc_r_table             ! For precomputed erfc(r) / r
+    type(tabulated) :: r6_table                 ! For precomputed r**6
+    type(tabulated) :: r12_table                ! For precomputed r**12
 
 end module simulation_state
