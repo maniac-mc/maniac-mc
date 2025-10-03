@@ -5,7 +5,7 @@ INCLUDE_DIR  := include
 
 # Compiler and flags
 FC           := gfortran
-FFLAGS       := -g -fcheck=all -fbacktrace -Wall -Wextra -J$(INCLUDE_DIR)
+FFLAGS := -g -fcheck=all -fbacktrace -Wall -Wextra -Wuninitialized -Wconversion -Wimplicit-interface -J$(INCLUDE_DIR)
 LDFLAGS      :=
 EXEC         := $(BUILD_DIR)/maniac
 
