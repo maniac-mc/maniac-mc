@@ -20,13 +20,11 @@ contains
         implicit none
 
         ! Local variables
-        real(real64) :: k_squared      ! Normalized squared k-vector for unit-sphere check
-        real(real64) :: k_squared_mag  ! Squared magnitude of the k-vector
-        integer :: number_of_kpoints   ! Counter for valid k-vectors
-        integer :: kx_idx, ky_idx, kz_idx  ! Reciprocal lattice indices
-        real(real64) :: kvec(3)        ! 3D reciprocal lattice vector
-        real(real64) :: kidx_scaled(3) ! Scaled k-vector indices for unit-sphere filter
-        real(real64), dimension(3,3) :: kvec_matrix  ! Columns are reciprocal lattice vectors b1, b2, b3
+        real(real64) :: k_squared           ! Normalized squared k-vector for unit-sphere check
+        real(real64) :: k_squared_mag       ! Squared magnitude of the k-vector
+        integer :: number_of_kpoints        ! Counter for valid k-vectors
+        integer :: kx_idx, ky_idx, kz_idx   ! Reciprocal lattice indices
+        real(real64), dimension(3,3) :: kvec_matrix ! Columns are reciprocal lattice vectors b1, b2, b3
 
         ! Store reciprocal lattice vectors as columns of a 3x3 matrix
         kvec_matrix = TWOPI * reshape(primary%reciprocal, shape(kvec_matrix))
@@ -40,28 +38,27 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
-                    ! Skip k=0 vector
+                    ! Skip the zero vector (k = 0,0,0) since it does not
+                    ! contribute to reciprocal-space energy.
                     if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
-                    ! Compute the k-vector
-                    kvec = dble(kx_idx)*kvec_matrix(:,1) + &
-                        dble(ky_idx)*kvec_matrix(:,2) + &
-                        dble(kz_idx)*kvec_matrix(:,3)
-
-                    ! Normalized k^2 to filter vectors outside the unit sphere
-                    kidx_scaled = [dble(kx_idx)/dble(ewald%kmax(1)), &
-                                dble(ky_idx)/dble(ewald%kmax(2)), &
-                                dble(kz_idx)/dble(ewald%kmax(3))]
-
-                    k_squared = sum(kidx_scaled**2)
-
-                    ! Skip k-vector if it lies outside the unit sphere in normalized space
+                    ! Compute normalized squared k-vector for unit-sphere check.
+                    ! This avoids including k-vectors outside the spherical
+                    ! cutoff in normalized k-space, reducing computation.
                     if (k_squared > one) cycle
 
-                    ! Weighting factor for this k-vector
-                    k_squared_mag = dot_product(kvec, kvec)
+                    ! Compute the actual squared magnitude of the k-vector
+                    ! in Cartesian coordinates, using the reciprocal lattice
+                    ! vectors. This is needed for the Gaussian damping factor
+                    ! in the Ewald weighting.
+                    k_squared_mag = KVectorSquaredMag(kx_idx, ky_idx, kz_idx, kvec_matrix)
 
-                    ! Weight for this k-vector: damps short-range contributions with Gaussian and scales by 1/k^2
+                    ! Increment the valid k-point counter and store its
+                    ! reciprocal-space weighting factor:
+                    !    W(k) = exp(-k^2 / (4 * alpha^2)) / k^2
+                    ! This factor damps short-range contributions and scales
+                    ! by 1/k^2 as required in the Ewald sum.
                     number_of_kpoints = number_of_kpoints + 1
                     ewald%recip_constants(number_of_kpoints) = exp(-k_squared_mag/(four*ewald%alpha**2)) / k_squared_mag
 
@@ -242,9 +239,7 @@ contains
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
                     ! Compute normalized squared magnitude of k-vector
-                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
-                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
-                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
                     ! Skip k=0 vector and vectors outside the unit sphere in normalized space
                     if (abs(k_squared) < error .or. k_squared > one) cycle
@@ -282,7 +277,6 @@ contains
 
         ! Input arguments
         integer, intent(in) :: kx_idx, ky_idx, kz_idx
-
         ! Internal variables
         complex(real64) :: amplitude
         integer :: residue_type, molecule_index, atom_index
@@ -306,19 +300,6 @@ contains
             end do
         end do
     end function ComputeRecipAmplitude
-
-    ! Returns form factor: 1 if index is zero, 2 otherwise
-    pure function FormFactor(idx) result(factor)
-
-        integer, intent(in) :: idx
-        real(real64) :: factor
-
-        if (idx == 0) then
-            factor = one
-        else
-            factor = two
-        end if
-    end function FormFactor
 
     ! Saves the current Fourier components for a given molecule.
     subroutine SaveSingleMolFourierTerms(residue_type, molecule_index)
@@ -369,10 +350,10 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
-                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
-                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
-                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
+                    ! Compute normalized squared magnitude of k-vector
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
+                    ! Skip k=0 vector and vectors outside the unit sphere in normalized space
                     if (abs(k_squared) < error .or. k_squared > one) cycle
 
                     number_of_kpoints = number_of_kpoints + 1
@@ -399,7 +380,7 @@ contains
         real(real64) :: form_factor ! Multiplicative factor used in energy calculations
         real(real64) :: k_squared
 
-        u_recipCoulomb_new = 0.0_real64
+        u_recipCoulomb_new = zero
         number_of_kpoints = 0
 
         do kx_idx = 0, ewald%kmax(1)
@@ -411,12 +392,10 @@ contains
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
                     ! Calculate normalized squared magnitude of k-vector
-                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
-                                    (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
-                                    (dble(kz_idx)/dble(ewald%kmax(3)))**2
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
                     ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1._real64) cycle
+                    if (abs(k_squared) < error .or. k_squared > one) cycle
 
                     number_of_kpoints = number_of_kpoints + 1 ! Increment Fourier component index
 
@@ -569,11 +548,11 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
-                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
-                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
-                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
+                    ! Compute normalized squared magnitude of k-vector
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
-                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1.0_real64) cycle
+                    ! Skip k=0 vector and vectors outside the unit sphere in normalized space
+                    if (abs(k_squared) < error .or. k_squared > one) cycle
 
                     number_of_kpoints = number_of_kpoints + 1
                     ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude_old(number_of_kpoints)
@@ -583,6 +562,62 @@ contains
         end do
 
     end subroutine RestoreFourierState_singlemol
+
+    ! Computes the normalized squared magnitude of a reciprocal lattice 
+    ! vector in index space.
+    pure function NormalizedK2(kx, ky, kz, kmax) result(k_squared)
+
+        ! Input arguments
+        integer, intent(in) :: kx, ky, kz
+        integer, intent(in) :: kmax(3)
+        ! Output argument
+        real(real64) :: k_squared
+
+        ! Compute normalized squared magnitude in index space
+        k_squared = (dble(kx)/dble(kmax(1)))**2 + (dble(ky)/dble(kmax(2)))**2 + (dble(kz)/dble(kmax(3)))**2
+    
+    end function NormalizedK2
+
+    ! Computes the squared magnitude of a reciprocal lattice vector
+    ! in Cartesian space given the lattice indices and the reciprocal
+    ! lattice vectors. This is used to compute the Ewald weighting factor.
+    pure function KVectorSquaredMag(kx, ky, kz, kvec_matrix) result(k2_mag)
+
+        ! Input arguments
+        integer, intent(in) :: kx, ky, kz
+        real(real64), intent(in) :: kvec_matrix(3,3)
+        ! Output argument
+        real(real64) :: k2_mag
+        ! Local argument
+        real(real64) :: kvec(3)
+
+        ! Build the 3D k-vector
+        kvec = dble(kx) * kvec_matrix(:,1) + &
+            dble(ky) * kvec_matrix(:,2) + &
+            dble(kz) * kvec_matrix(:,3)
+
+        ! Return squared magnitude
+        k2_mag = dot_product(kvec, kvec)
+
+    end function KVectorSquaredMag
+
+    ! Computes the multiplicative form factor used in reciprocal-space
+    ! Ewald summation to account for positive/negative k-vector symmetry.
+    ! For a given k-index along one axis:
+    !   - If the index is zero, the factor is 1
+    !   - Otherwise (non-zero index), the factor is 2
+    pure function FormFactor(idx) result(factor)
+
+        integer, intent(in) :: idx
+        real(real64) :: factor
+
+        if (idx == 0) then
+            factor = one
+        else
+            factor = two
+        end if
+
+    end function FormFactor
 
 end module ewald_utils
 
