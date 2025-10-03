@@ -23,6 +23,7 @@ jobs:
             gfortran \
             make \
             cmake \
+            makedepf90 \
             libopenmpi-dev \
             openmpi-bin \
             liblapack-dev \
