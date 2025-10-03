@@ -2,7 +2,7 @@
 ! module output_utils
 !
 ! This module handles all output-related operations for the Monte Carlo
-! simulation. 
+! simulation.
 !-----------------------------------------------------------------------------
 
 module output_utils
@@ -193,7 +193,7 @@ contains
         call LogMessage(formatted_msg)
 
         ! Convert energies in kcal/mol
-        e_recip_coulomb_kcalmol = energy%recip_coulomb * KB_kcalmol 
+        e_recip_coulomb_kcalmol = energy%recip_coulomb * KB_kcalmol
         e_non_coulomb_kcalmol = energy%non_coulomb * KB_kcalmol
         e_coulomb_kcalmol = energy%coulomb * KB_kcalmol
         e_ewald_self_kcalmol = energy%ewald_self * KB_kcalmol
@@ -243,7 +243,7 @@ contains
         character(LEN=1024) :: formatted_msg
 
         ! Convert to kcal/mol
-        e_recip_coulomb_kcalmol = energy%recip_coulomb * KB_kcalmol 
+        e_recip_coulomb_kcalmol = energy%recip_coulomb * KB_kcalmol
         e_non_coulomb_kcalmol = energy%non_coulomb * KB_kcalmol
         e_coulomb_kcalmol = energy%coulomb * KB_kcalmol
         e_ewald_self_kcalmol = energy%ewald_self * KB_kcalmol
@@ -620,7 +620,7 @@ contains
     end subroutine CheckMoleculeIndex
 
     subroutine ValidateInputTranslation(step, move_type)
-    
+
         implicit none
 
         ! Input arguments

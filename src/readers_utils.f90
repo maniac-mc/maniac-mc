@@ -283,7 +283,7 @@ contains
             delta_r_cart = curr_coords - ref_coords
 
             if (box%type == 1 .or. box%type == 2) then
-                
+
                 ! Cubic/orthorhombic: simple wrapping along box edges
                 do idim = 1, 3
                     delta_r_cart(idim) = wrap_nearest(delta_r_cart(idim), box%matrix(idim, idim))

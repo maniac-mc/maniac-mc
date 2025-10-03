@@ -71,7 +71,7 @@ module simulation_state
         real(real64) :: total                     ! Total system energy
     end type energy_type
     type(energy_type) :: energy
-        
+
     ! Energy status for Monte Carlo move
     type :: energy_state
         real(real64) :: non_coulomb             ! Old and new non-coulombic energy of molecule

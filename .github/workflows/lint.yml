@@ -1,0 +1,26 @@
+name: MANIAC Lint
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  flint-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python & Flint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+          pip install --user flint
+
+      - name: Run Flint lint
+        run: |
+          ~/.local/bin/flint report src
+

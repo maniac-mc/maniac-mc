@@ -55,7 +55,7 @@ contains
     !   and the external reservoir are consistent
     ! !===============================================================
     subroutine CheckConsistency()
-        
+
         implicit none
 
         real(real64), parameter :: tol = 1.0d-6
@@ -67,10 +67,10 @@ contains
             do j = 1, nb%type_residue
                 do k = 1, nb%types_per_residue(j)
                     if (abs(primary%atom_masses(j, k) - reservoir%atom_masses(j, k)) > tol) then
-                        
+
                         ! Generic header warning
                         call WarnUser("Reservoir and system mass don't match.")
-                        
+
                         ! Detailed mismatch info
                         write(msg, '(A,I3,A,I3,A,F10.5,A,F10.5)') &
                             "Mismatch at residue ", j, ", site ", k, &

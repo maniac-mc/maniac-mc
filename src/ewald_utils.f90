@@ -1,7 +1,7 @@
 module ewald_utils
 
     use simulation_state
-    use output_utils 
+    use output_utils
     use constants
     use geometry_utils
     use, intrinsic :: iso_fortran_env, only: real64
@@ -37,8 +37,8 @@ contains
 
         ! Loop over all reciprocal lattice indices within kmax limits
         do kx_idx = 0, ewald%kmax(1)
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2) 
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3) 
+            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
+                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
                     ! Skip k=0 vector
                     if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
@@ -278,7 +278,7 @@ contains
     pure function ComputeRecipAmplitude(kx_idx, ky_idx, kz_idx) result(amplitude)
 
         implicit none
-    
+
         ! Input arguments
         integer, intent(in) :: kx_idx, ky_idx, kz_idx
 
