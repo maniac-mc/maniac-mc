@@ -45,7 +45,7 @@ contains
     !   Ensures consistency between primary and reservoir if applicable.
     !-----------------------------------------------------------------------------
     subroutine ReadSystemData()
-        
+
         implicit none
 
         !-----------------------------
@@ -280,7 +280,7 @@ contains
                 exit  ! Exit after processing Masses section
             end if
         end do
-            
+
         ! Trigger error if no masses found or mismatch with declared atom types
         if (mass_found == 0) then
             call AbortRun("No masses found in data file", 12)
@@ -718,7 +718,7 @@ contains
 
         ! Read and discard a blank line, if present
         read(INFILE, '(A)', IOSTAT=ios) line
-                
+
         if (ios < 0) then
             write(formatted_msg, '(A, A)') "No bonds found in data file: ", trim(data_file_name)
             call AbortRun(trim(formatted_msg), ERROR_READ)
@@ -811,7 +811,7 @@ contains
 
         ! Read and discard a blank line, if present
         read(INFILE, '(A)', IOSTAT=ios) line
-                
+
         if (ios < 0) then
             write(formatted_msg, '(A, A)') "No angles found in data file: ", trim(data_file_name)
             call AbortRun(trim(formatted_msg), ERROR_READ)
@@ -886,7 +886,7 @@ contains
         ! Read until "Dihedrals" section or end of file
         do
             read(INFILE, '(A)', IOSTAT=ios) line
-                        
+
             if (ios < 0) then
                 write(formatted_msg, '(A, A)') "No dihedrals found in data file: ", trim(data_file_name)
                 call InfoMessage(trim(formatted_msg))
@@ -905,7 +905,7 @@ contains
 
         ! Read and discard a blank line, if present
         read(INFILE, '(A)', IOSTAT=ios) line
-                
+
         if (ios < 0) then
             write(formatted_msg, '(A, A)') "No dihedrals found in data file: ", trim(data_file_name)
             call AbortRun(trim(formatted_msg), ERROR_READ)
@@ -923,7 +923,7 @@ contains
         ! Loop over all dihedrals
         do k = 1, box%num_dihedrals
             read(INFILE, '(A)', IOSTAT=ios) line
-                        
+
             if (ios < 0) then
                 write(formatted_msg, '(A, I0, A)') "Unexpected end of file at dihedrals line ", &
                     k, " in: " // trim(data_file_name)
@@ -1093,7 +1093,7 @@ contains
 
             sort_index(j + 1) = temp_index
         end do
-        
+
         ! Allocate temporary arrays
         allocate(tmp_atom_names_1d(box%num_atoms))
         allocate(tmp_atom_charges_1d(box%num_atoms))
@@ -1123,7 +1123,7 @@ contains
             atom_z_1d(i) = tmp_atom_z_1d(i)
             atom_types_1d(i) = tmp_atom_types_1d(i)
             atom_ids_1d(i) = i
-            atom_original_1d(i) = tmp_atom_original_1d(i) 
+            atom_original_1d(i) = tmp_atom_original_1d(i)
         end do
 
         call DetectResiduePattern(box, tmp_atom_types_1d)
@@ -1221,10 +1221,10 @@ contains
         box%atom_ids = 0
         box%atom_names = ""
         box%atom_charges = 0.0D0
-        
+
         ! Loop over residue types
         do i = 1, nb%type_residue
-        
+
             box%num_residues(i) = 0
             k = 1
 
@@ -1255,7 +1255,7 @@ contains
                             if (atom_types_1d(k) /= nb%types_pattern(i, cpt)) then
                                 call AbortRun("Issue with atom order in data file")
                             end if
-                        end if 
+                        end if
 
                         ! Move to next atom and increment residue pattern index
                         k = k + 1
@@ -1317,7 +1317,7 @@ contains
         k = 1  ! Global atom index
 
         ! Loop over all residue types
-        do i = 1, nb%type_residue 
+        do i = 1, nb%type_residue
 
             natoms = nb%atom_in_residue(i)      ! number of atoms per molecule of type i
             nmolecules = box%num_residues(i)    ! number of molecules of this type
@@ -1445,7 +1445,7 @@ contains
                 if (atom_types_1d(k) == box%atom_types(i, 1)) then
 
                     nb_res = nb_res + 1
-                    
+
                     ! Extract atom coordinates for this molecule
                     do j = 1, nb%atom_in_residue(i)
                         tmp_atom_x_1d(j) = atom_x_1d(k)
@@ -1476,7 +1476,7 @@ contains
                             call WarnUser("Molecule COM outside simulation box")
                         end if
                     end do
-                                    
+
                     ! Sanity check, CoM far from atoms in active molecule
                     if (input%is_active(i) == 1) then
                         if (minval(sqrt((tmp_atom_x_1d(1:nb%atom_in_residue(i)) - original_com(1))**2 + &
@@ -1519,7 +1519,7 @@ contains
         type(type_box), intent(inout) :: box
 
         integer :: n
-   
+
         isInResidue = .false.
 
         do n = 1, nb%atom_in_residue(res)
@@ -1537,12 +1537,12 @@ contains
     !> Get the local index of an atom within a residue.
     !---------------------------------------------------------------
     integer function atomIndexInResidue(box, res, atom_id)
-    
+
         integer, intent(in) :: res, atom_id
         type(type_box), intent(inout) :: box
 
         integer :: n
-    
+
         atomIndexInResidue = -1
         do n = 1, nb%atom_in_residue(res)
             if (box%atom_ids(res, n) == atom_id) then

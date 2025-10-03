@@ -9,8 +9,8 @@ contains
 
     !-----------------------------------------------------------
     ! Subroutine: PrepareSimulationBox
-    ! Purpose: Initialize a simulation box by determining its 
-    !          symmetry, computing geometric properties, and 
+    ! Purpose: Initialize a simulation box by determining its
+    !          symmetry, computing geometric properties, and
     !          calculating the inverse matrix for reciprocal-space use.
     !-----------------------------------------------------------
     subroutine PrepareSimulationBox(box)
@@ -78,7 +78,7 @@ contains
         else
             box%type = 1
         end if
-        
+
     end subroutine DetermineBoxSymmetry
 
     !-----------------------------------------------------------
@@ -277,7 +277,7 @@ contains
             call WarnUser("Determinant is zero or near zero, inverse not computed.")
             return
         end if
-        
+
         ! Store inverse matrix in reciprocal
         do i = 1, 3
             do j = 1, 3
@@ -286,11 +286,11 @@ contains
         end do
 
         return
-    end subroutine ComputeInverse 
+    end subroutine ComputeInverse
 
     ! Compute the cross product of two 3D vectors a and b
     function CrossProduct(a, b) result(c)
-    
+
         real(real64), intent(in) :: a(3), b(3) ! Input vectors
         real(real64) :: c(3) ! Resulting cross product vector
 

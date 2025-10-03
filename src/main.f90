@@ -20,7 +20,7 @@ program MANIAC
     ! Read input files
     !==============================
     call ReadInput()                    ! Read the main MANIAC input file
-    call ReadSystemData()               ! Read tpology/data file   
+    call ReadSystemData()               ! Read tpology/data file
     call ReadParameters()               ! Read simulation parameters (Lennard-Jones, etc.)
 
     !==============================
@@ -39,5 +39,6 @@ program MANIAC
     !==============================
     call FinalReport()                  ! Print energy and statistics
     call CloseOutput()                  ! Close files and finalize
-    
+
 end program MANIAC
+

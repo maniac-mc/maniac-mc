@@ -70,7 +70,7 @@ contains
     subroutine WriteHeader()
 
         use version_module
-       
+
         implicit none
         integer, parameter :: box_width = 78 ! width of the box
 

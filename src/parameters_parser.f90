@@ -46,7 +46,7 @@ contains
             max_atom_type = maxval(primary%atom_types(:,:))
         end if
         max_pairs = max_atom_type * max_atom_type           ! Calculate maximum possible pairs for array sizing
-        
+
         allocate(printed(max_atom_type, max_atom_type))     ! Allocate array to track logged atom type pairs
         allocate(pair1(max_pairs), pair2(max_pairs))        ! Allocate arrays for storing atom type indices of pairs
         allocate(epsilons(max_pairs), sigmas(max_pairs))    ! Allocate arrays for storing epsilon and sigma values
@@ -172,7 +172,7 @@ contains
                                     warned(type_j, type_i) = .true.
                                 end if
                                 coeff%sigma(i,j,k,l) = sigma
-                                coeff%epsilon(i,j,k,l) = epsilon 
+                                coeff%epsilon(i,j,k,l) = epsilon
                             end if
                         end if
                     end do

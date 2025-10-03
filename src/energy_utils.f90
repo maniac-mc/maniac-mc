@@ -33,7 +33,7 @@ contains
     subroutine ComputePairwiseEnergy(box)
 
         implicit none
-        
+
         ! Input arguments
         type(type_box), intent(inout) :: box
 
@@ -91,7 +91,7 @@ contains
         e_coulomb = zero
 
         ! Loop over sites in molecule residue_type
-        do atom_index_1 = 1, nb%atom_in_residue(residue_type_1) 
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type_1)
 
             ! Loop over all molecule types 2
             do residue_type_2 = 1, nb%type_residue
@@ -111,7 +111,7 @@ contains
                     do atom_index_2 = 1, nb%atom_in_residue(residue_type_2)
 
                         ! Read pair parameters
-                        sigma = coeff%sigma(residue_type_1, residue_type_2, atom_index_1, atom_index_2)                            
+                        sigma = coeff%sigma(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
                         epsilon = coeff%epsilon(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
                         charge_1 = primary%atom_charges(residue_type_1, atom_index_1)
                         charge_2 = primary%atom_charges(residue_type_2, atom_index_2)
@@ -186,7 +186,7 @@ contains
 
             ! Re-scale energy
             energy = energy * EPS0_INV_eVA / KB_eVK
-        
+
         end if
 
     end function CoulombEnergy
@@ -291,7 +291,7 @@ contains
         ! Loop over all atoms in the residue
         do atom_index_1 = 1, nb%atom_in_residue(residue_type)
             charge_1 = primary%atom_charges(residue_type, atom_index_1)
-            
+
             ! Skip atoms with negligible charge
             if (abs(charge_1) < error) cycle
 

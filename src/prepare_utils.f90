@@ -1,7 +1,7 @@
 module prepare_utils
 
     use simulation_state
-    use output_utils 
+    use output_utils
     use, intrinsic :: iso_fortran_env, only: real64
 
     implicit none
@@ -10,7 +10,7 @@ contains
 
     !-----------------------------------------------------------
     ! Subroutine: PrepareSimulationParameters
-    ! Purpose: Convert fugacities to dimensionless activities and 
+    ! Purpose: Convert fugacities to dimensionless activities and
     !          initialize Ewald summation parameters for the simulation.
     !-----------------------------------------------------------
     subroutine PrepareSimulationParameters()
@@ -24,7 +24,7 @@ contains
         !         (cutoff, precision, reciprocal space, etc.)
         call SetupEwald()
 
-        ! Step 3: Allocate memory for arrays needed by the Ewald 
+        ! Step 3: Allocate memory for arrays needed by the Ewald
         !         method (reciprocal vectors, coefficients, etc.)
         call AllocateEwaldArray()
 
@@ -60,7 +60,7 @@ contains
 
                 ! Convert fugacity from atm → Pa → activity in Å⁻³
                 input%fugacity(id_residue) = input%fugacity(id_residue) * ATM_TO_PA * A3_TO_M3 / thermal_energy ! atm → Pa
-            
+
             end if
         end do
 
@@ -102,7 +102,7 @@ contains
         logical, optional, intent(in) :: verbose   ! optional flag for logging
         logical :: do_log                          ! Internal flag: whether to log messages in this routine
 
-        ! Default: log unless explicitly disabled                
+        ! Default: log unless explicitly disabled
         do_log = .true.; if (present(verbose)) do_log = verbose
 
         ! Step 1: Adjust cutoff if too large
@@ -167,7 +167,7 @@ contains
         ! Compute Ewald damping parameter
         ewald%alpha = sqrt(abs(log(input%ewald_tolerance * input%real_space_cutoff * ewald%screening_factor))) / &
                     input%real_space_cutoff
-        
+
         ! Estimate needed Fourier-space precision
         ewald%fourier_precision = sqrt(-log(input%ewald_tolerance * input%real_space_cutoff * &
                                 (2.0_real64 * ewald%screening_factor * ewald%alpha)**2))

@@ -87,7 +87,7 @@ contains
     !   Aborts execution if probabilities are invalid.
     !---------------------------------------------------------------------------
     subroutine ValidateAndRescaleMoveProbabilities()
-        
+
         use, intrinsic :: iso_fortran_env, only: real64
         implicit none
 
@@ -241,7 +241,7 @@ contains
     subroutine AllocateAtomArrays()
 
         implicit none
-        
+
         ! Allocate atom arrays
         ! 2 = system + reservoir
         ! 3 = x, y, z
@@ -267,7 +267,7 @@ contains
                                 nb%max_atom_in_residue, nb%max_atom_in_residue))
         allocate(coeff%epsilon(nb%type_residue, nb%type_residue,&
                                 nb%max_atom_in_residue, nb%max_atom_in_residue))
-                                
+
         allocate(res%types_2d(nb%type_residue, nb%max_type_per_residue))
         allocate(res%names_2d(nb%type_residue, nb%max_type_per_residue))
         allocate(input%fugacity(nb%type_residue))
@@ -478,7 +478,7 @@ contains
             ! ===============================
             if (in_residue_block) then
 
-                ! First, try to read the first two words from the line: 
+                ! First, try to read the first two words from the line:
                 ! 'token' will hold the keyword (e.g., 'name', 'state')
                 ! 'val_cha' will hold the string value after the keyword
                 read(line, *) token, val_cha
