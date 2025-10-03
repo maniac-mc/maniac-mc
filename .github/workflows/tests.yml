@@ -28,5 +28,5 @@ jobs:
         run: ./build.sh
 
       - name: Run tests
-        working-directory: tests/readers/inputs
+        working-directory: tests/readers/data
         run: ./run-test.sh
