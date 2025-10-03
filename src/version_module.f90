@@ -2,6 +2,6 @@ module version_module
 
     implicit none
     character(len=*), parameter :: version = "v0.3.0-beta"
-    character(len=*), parameter :: git_commit = "1392545"
+    character(len=*), parameter :: git_commit = "8d6200f"
 
 end module version_module

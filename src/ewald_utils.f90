@@ -90,7 +90,6 @@ contains
         integer :: atom_index_1                 ! Atom index
         real(real64), dimension(3) :: atom      ! Atom coordinates in real space
         real(real64), dimension(3) :: phase     ! Phase factors for Fourier terms
-
         integer :: kmax_x, kmax_y, kmax_z       ! max k indices for each direction
         complex(8), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
 
@@ -124,6 +123,7 @@ contains
 
             call ComputePhaseFactors1D(temp_z, phase(3), kmax_z)
             ewald%phase_factor_z(residue_type, molecule_index, atom_index_1, :) = temp_z
+
         end do
 
     end subroutine SingleMolFourierTerms

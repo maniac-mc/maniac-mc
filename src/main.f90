@@ -3,6 +3,7 @@ program MANIAC
     use cli_utils
     use initoutput_utils
     use parameters_parser
+    use tabulated_utils
     use prepare_utils
     use energy_utils
     use input_parser
@@ -21,6 +22,7 @@ program MANIAC
 
     ! Step 3 : Simulation preparation
     call PrepareSimulationParameters()  ! Set up MC parameters, initial checks
+    call PrecomputeTable()              ! Precompute tables for faster calculation
     call ComputeSystemEnergy(primary)   ! Compute initial total energy
 
 !     ! Step 4 :Monte Carlo simulation

@@ -35,4 +35,9 @@ module parameters
     integer, parameter :: TYPE_SMALLMOVE = 0 ! Subtype: small translation move
     integer, parameter :: TYPE_BIGMOVE = 1 ! Subtype: large "jump" move
 
+    ! In module parameters
+    integer, parameter :: TABULATED_POINTS = 5000  ! Default number of points in tabulated functions
+
+    logical, parameter :: use_table = .true.        ! To fix: make it an input parameter for user
+
 end module parameters

@@ -1,6 +1,7 @@
 module energy_utils
 
     use simulation_state
+    use tabulated_utils
     use geometry_utils
     use constants
     use ewald_utils
@@ -138,12 +139,12 @@ contains
     !------------------------------------------------------------------------------
     ! Function to compute Lennard-Jones interaction energy
     !------------------------------------------------------------------------------
-    pure function LennardJonesEnergy(distance, sigma, epsilon) result(energy)
+    pure function LennardJonesEnergy(r, sigma, epsilon) result(energy)
 
         implicit none
 
         ! Input variables
-        real(real64), intent(in) :: distance   ! Distance between the two atoms
+        real(real64), intent(in) :: r          ! Distance between the two atoms (in Å)
         real(real64), intent(in) :: sigma      ! Lennard-Jones sigma parameter (size, Å)
         real(real64), intent(in) :: epsilon    ! Lennard-Jones epsilon parameter (well depth, eV or kJ/mol depending on units)
 
@@ -152,10 +153,10 @@ contains
         real(real64) :: r12     ! (σ / r)^12 term of the LJ potential
         real(real64) :: energy  ! Computed Lennard-Jones energy contribution
 
-        if (distance >= input%real_space_cutoff) then
+        if (r >= input%real_space_cutoff) then
             energy = zero
         else
-            r6 = (sigma / distance)**6
+            r6 = (sigma / r)**6
             r12 = r6 * r6
             energy = four * epsilon * (r12 - r6)
         end if
@@ -165,28 +166,34 @@ contains
     !------------------------------------------------------------------------------
     ! Function to compute Coulomb interaction energy (Ewald direct-space term)
     !------------------------------------------------------------------------------
-    pure function CoulombEnergy(distance, charge1, charge2) result(energy)
+    pure function CoulombEnergy(r, q1, q2) result(energy)
 
         implicit none
 
         ! Input variables
-        real(real64), intent(in) :: distance   ! Distance between the two atoms
-        real(real64), intent(in) :: charge1    ! Atomic partial charge of atom 1 (in e)
-        real(real64), intent(in) :: charge2    ! Atomic partial charge of atom 2 (in e)
+        real(real64), intent(in) :: r   ! Distance between the two atoms (in Å)
+        real(real64), intent(in) :: q1  ! Atomic partial charge of atom 1 (in e)
+        real(real64), intent(in) :: q2  ! Atomic partial charge of atom 2 (in e)
 
         ! Local variable
         real(real64) :: energy   ! Computed Coulomb energy contribution (unscaled)
 
-        if ((abs(charge1) < error) .or. (abs(charge2) < error)) then
+        ! Skip negligible charges
+        if ((abs(q1) < error) .or. (abs(q2) < error)) then
             energy = zero
         else
-            ! Direct-space Coulomb potential with Ewald damping:
-            ! V(r) = (q1*q2) * erfc(alpha * r) / r
-            energy = charge1 * charge2 * (erfc(ewald%alpha * distance)) / distance
+
+            ! Compute Coulomb energy either with table or directly
+            if (use_table .and. erfc_r_table%initialized) then
+                energy = q1 * q2 * LookupTabulated(erfc_r_table, r)
+            else
+                ! Direct-space Coulomb potential with Ewald damping:
+                ! V(r) = (q1*q2) * erfc(alpha * r) / r
+                energy = q1 * q2 * (erfc(ewald%alpha * r)) / r
+            end if
 
             ! Re-scale energy
             energy = energy * EPS0_INV_eVA / KB_eVK
-
         end if
 
     end function CoulombEnergy
