@@ -102,39 +102,29 @@ contains
         call LogMessage("+" // repeat_char("-", box_width-2) // "+")
 
         ! Title
-        call BoxLine("Simulation Completed", box_width)
+        call BoxLine("MANIAC-MC Simulation Completed", box_width)
         call BoxLine("", box_width)  ! blank line inside box
 
         ! Summary statistics (Trial / Accepted moves)
-        if (counter%trial_translations > 0) then
-            write(line,'(A,I8,A,I8)') "  Translations (Trial/Accepted): ", &
-                counter%trial_translations, " / ", counter%translations
-            call BoxLine(trim(line), box_width)
-        end if
+        write(line,'(A,I8,A,I8)') "  Translations (Trial/Accepted): ", &
+            counter%trial_translations, " / ", counter%translations
+        call BoxLine(trim(line), box_width)
 
-        if (counter%trial_translations > 0) then
-            write(line,'(A,I8,A,I8)') "  Rotations    (Trial/Accepted): ", &
-                counter%trial_rotations, " / ", counter%rotations
-            call BoxLine(trim(line), box_width)
-        end if
+        write(line,'(A,I8,A,I8)') "  Rotations    (Trial/Accepted): ", &
+            counter%trial_rotations, " / ", counter%rotations
+        call BoxLine(trim(line), box_width)
 
-        if (counter%trial_bigmoves > 0) then
-            write(line,'(A,I8,A,I8)') "  Big moves    (Trial/Accepted): ", &
-                counter%trial_bigmoves, " / ", counter%big_moves
-            call BoxLine(trim(line), box_width)
-        end if
+        write(line,'(A,I8,A,I8)') "  Big moves    (Trial/Accepted): ", &
+            counter%trial_bigmoves, " / ", counter%big_moves
+        call BoxLine(trim(line), box_width)
 
-        if (counter%trial_creations > 0) then
-            write(line,'(A,I8,A,I8)') "  Creations    (Trial/Accepted): ", &
-                counter%trial_creations, " / ", counter%creations
-            call BoxLine(trim(line), box_width)
-        end if
+        write(line,'(A,I8,A,I8)') "  Creations    (Trial/Accepted): ", &
+            counter%trial_creations, " / ", counter%creations
+        call BoxLine(trim(line), box_width)
 
-        if (counter%trial_deletions > 0) then
-            write(line,'(A,I8,A,I8)') "  Deletions    (Trial/Accepted): ", &
-                counter%trial_deletions, " / ", counter%deletions
-            call BoxLine(trim(line), box_width)
-        end if
+        write(line,'(A,I8,A,I8)') "  Deletions    (Trial/Accepted): ", &
+            counter%trial_deletions, " / ", counter%deletions
+        call BoxLine(trim(line), box_width)
 
         call BoxLine("", box_width)  ! blank line inside box
 
@@ -231,42 +221,57 @@ contains
 
         implicit none
 
-        real(real64) :: e_tot_kcalmol
-        real(real64) :: e_coul_kcalmol
-        real(real64) :: e_long_kcalmol
-        real(real64) :: e_recip_coulomb_kcalmol
-        real(real64) :: e_non_coulomb_kcalmol
-        real(real64) :: e_coulomb_kcalmol
-        real(real64) :: e_ewald_self_kcalmol
-        real(real64) :: e_intra_coulomb_kcalmol
-        real(real64) :: e_total_kcalmol
-        character(LEN=1024) :: formatted_msg
+        ! Energy components in kcal/mol
+        real(real64) :: e_tot          ! Total energy for reporting (computed)
+        real(real64) :: e_coul         ! Coulombic energy including intra-molecular interactions
+        real(real64) :: e_long         ! Long-range Coulombic energy (reciprocal + self)
+        real(real64) :: e_recip ! Reciprocal-space Coulombic energy
+        real(real64) :: e_non_coulomb  ! Non-Coulombic energy (van der Waals, etc.)
+        real(real64) :: e_coulomb       ! Direct-space Coulombic energy
+        real(real64) :: e_self    ! Ewald self-energy correction
+        real(real64) :: e_intra ! Intra-molecular Coulombic energy
+        character(LEN=1024) :: formatted_msg   ! Formatted message for logging
+        integer, parameter :: box_width = 78
 
-        ! Convert to kcal/mol
-        e_recip_coulomb_kcalmol = energy%recip_coulomb * KB_kcalmol
-        e_non_coulomb_kcalmol = energy%non_coulomb * KB_kcalmol
-        e_coulomb_kcalmol = energy%coulomb * KB_kcalmol
-        e_ewald_self_kcalmol = energy%ewald_self * KB_kcalmol
-        e_intra_coulomb_kcalmol = energy%intra_coulomb * KB_kcalmol
-        e_total_kcalmol = energy%total * KB_kcalmol
+        ! Convert energies to kcal/mol
+        e_recip   = energy%recip_coulomb * KB_kcalmol
+        e_non_coulomb     = energy%non_coulomb * KB_kcalmol
+        e_coulomb = energy%coulomb * KB_kcalmol
+        e_self    = energy%ewald_self * KB_kcalmol
+        e_intra   = energy%intra_coulomb * KB_kcalmol
 
+        ! Compute combined components
+        e_tot  = e_non_coulomb + e_recip + e_coulomb + e_self + e_intra
+        e_coul = e_coulomb + e_intra
+        e_long = e_recip + e_self
+
+        ! Blank line before box
         call LogMessage("")
-        call LogMessage("====== Final Report ======")
+
+        ! Top border
+        call LogMessage("+" // repeat_char("-", box_width-2) // "+")
+
+        ! Box title
+        call BoxLine("Final Energy Report", box_width)
+        call BoxLine("", box_width)
+
+        ! Column headers
+        call BoxLine("  Step        TotEng        E_vdwl        E_coul        E_long", box_width)
+
+        ! Energies line
+        write(formatted_msg,'(I10,1X,F15.6,1X,F15.6,1X,F15.6,1X,F15.6)') &
+            current_block, e_tot, e_non_coulomb, e_coul, e_long
+        call BoxLine(trim(formatted_msg), box_width)
+
+        call BoxLine("", box_width)  ! blank line inside box
+
+        ! Bottom border
+        call LogMessage("+" // repeat_char("-", box_width-2) // "+")
+
+        ! Blank line after box
         call LogMessage("")
-        call LogMessage("  Step        TotEng        E_vdwl        E_coul        E_long")
 
-        ! Compute total energy
-        e_tot_kcalmol = e_non_coulomb_kcalmol + e_recip_coulomb_kcalmol + e_coulomb_kcalmol + &
-                e_ewald_self_kcalmol + e_intra_coulomb_kcalmol
-        e_coul_kcalmol = e_coulomb_kcalmol + e_intra_coulomb_kcalmol
-        e_long_kcalmol = e_recip_coulomb_kcalmol + e_ewald_self_kcalmol
-
-        ! Combine and format energy data in one line
-        write(formatted_msg, '(I10, 1X, F15.6, 1X, F15.6, 1X, F15.6, 1X, F15.6)') &
-            current_block, e_tot_kcalmol, e_non_coulomb_kcalmol, &
-            e_coul_kcalmol, e_long_kcalmol
-
-        call LogMessage(formatted_msg)
+        call CloseOutput()                  ! Close files and finalize
 
     end subroutine FinalReport
 

@@ -10,35 +10,23 @@ program MANIAC
 
     implicit none
 
-    !==============================
-    ! Program initialization
-    !==============================
+    ! Step 1 : Program initialization
     call ParseCommandLineArguments()    ! Handle -i, -d, -p, -r, -o options
     call InitOutput()                   ! Open log file and create output directory
 
-    !==============================
-    ! Read input files
-    !==============================
+    ! Step 2 : Read input files
     call ReadInput()                    ! Read the main MANIAC input file
     call ReadSystemData()               ! Read tpology/data file
     call ReadParameters()               ! Read simulation parameters (Lennard-Jones, etc.)
 
-    !==============================
-    ! Simulation preparation
-    !==============================
+    ! Step 3 : Simulation preparation
     call PrepareSimulationParameters()  ! Set up MC parameters, initial checks
     call ComputeSystemEnergy(primary)   ! Compute initial total energy
 
-!     !==============================
-!     ! Monte Carlo simulation
-!     !==============================
+!     ! Step 4 :Monte Carlo simulation
 !     call MonteCarloLoop()               ! Main MC loop
 
-    !==============================
-    ! Final reporting and cleanup
-    !==============================
+    ! Step 5 :Final reporting and cleanup
     call FinalReport()                  ! Print energy and statistics
-    call CloseOutput()                  ! Close files and finalize
 
 end program MANIAC
-
