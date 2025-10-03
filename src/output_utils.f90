@@ -623,24 +623,6 @@ contains
 
     end subroutine CheckMoleculeIndex
 
-    subroutine ValidateInputTranslation(step)
-
-        implicit none
-
-        ! Input arguments
-        real(real64), intent(in) :: step         ! Translation step
-
-        ! Local
-        character(len=200) :: formatted_msg
-
-        ! Check translation step
-        if (step <= zero) then
-            write(formatted_msg, '(A,F6.3)') "ERROR: translation_step must be positive. Provided value: ", step
-            call AbortRun(trim(formatted_msg))
-        end if
-
-    end subroutine ValidateInputTranslation
-
     !-----------------------------------------------------------------------------
     ! Function: to_string
     !

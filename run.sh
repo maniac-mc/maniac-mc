@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit on error
 
-case="LJ-gas"
+case="H2O-gas"
 
 base_energy="mc-topology/testcase-energy"
 base_adsorption="mc-topology/testcase-adsorption"
@@ -57,9 +57,9 @@ case "$case" in
     ;;
   "H2O-gas")
     folder="$base_adsorption/H2O"
-    input="$folder/water.maniac"
-    data="$folder/water.data"
-    inc="$folder/water.inc"
+    input="$folder/input.maniac"
+    data="$folder/topology.data"
+    inc="$folder/parameters.inc"
     res=""
     ;;
   "DIPOLE-orthorhombic")
