@@ -82,7 +82,6 @@ contains
 
         ! Version info lines
         call BoxLine("MANIAC-MC - Version " // version, box_width)
-        call BoxLine("Git commit: " // git_commit, box_width)
 
         ! Credits (optional, you can also keep them in version_module if desired)
         call BoxLine("Code written and maintained by Simon Gravelle, LIPhy, CNRS", box_width)
