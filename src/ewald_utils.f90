@@ -328,7 +328,6 @@ contains
         ! Input arguments
         integer, intent(in) :: residue_type
         integer, intent(in) :: molecule_index
-
         ! Local variables
         integer :: atom_index_1
         integer :: kx_idx, ky_idx, kz_idx
