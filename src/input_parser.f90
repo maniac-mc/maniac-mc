@@ -100,17 +100,17 @@ contains
         ! Rescale if not exactly 1.0
         if (abs(proba_total - one) > error) then
             scale_factor = one / proba_total
-            proba%translation        = proba%translation * scale_factor
-            proba%rotation           = proba%rotation * scale_factor
+            proba%translation = proba%translation * scale_factor
+            proba%rotation = proba%rotation * scale_factor
             proba%insertion_deletion = proba%insertion_deletion * scale_factor
-            proba%swap               = proba%swap * scale_factor
+            proba%swap = proba%swap * scale_factor
             call WarnUser("Move probabilities rescaled to sum to 1.0")
         end if
 
         ! Recompute total to validate
         proba_total = proba%translation + proba%rotation + proba%insertion_deletion + proba%swap
 
-        ! Abort if still invalid
+        ! Abort if proba invalid
         if (abs(proba_total - one) > error) then
             call AbortRun("Invalid move probabilities: must sum to 1.0", 1)
         end if
