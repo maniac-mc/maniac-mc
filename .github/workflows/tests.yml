@@ -1,0 +1,37 @@
+name: MANIAC build & tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gfortran \
+            make \
+            cmake \
+            libopenmpi-dev \
+            openmpi-bin \
+            liblapack-dev \
+            libblas-dev \
+            libnetcdff-dev
+
+      - name: Run build.sh
+        run: ./build.sh
+
+      - name: Run tests
+        working-directory: tests/readers/inputs
+        run: ./run-test.sh
