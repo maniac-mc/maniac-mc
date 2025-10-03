@@ -124,6 +124,8 @@ contains
                         ! Update non-Coulomb energy
                         e_non_coulomb = e_non_coulomb + LennardJonesEnergy(distance, sigma, epsilon)
 
+                        write(*,*) distance, LookupTabulated(r6_table, distance)
+
                         ! Update Coulomb energy
                         e_coulomb = e_coulomb + CoulombEnergy(distance, charge_1, charge_2)
 
@@ -156,8 +158,14 @@ contains
         if (r >= input%real_space_cutoff) then
             energy = zero
         else
-            r6 = (sigma / r)**6
-            r12 = r6 * r6
+            ! Use tabulated r^6 and r^12 if available and requested
+            if (use_table .and. r6_table%initialized .and. r12_table%initialized) then
+                r6 = sigma**6 / LookupTabulated(r6_table, r)
+                r12 = sigma**12 / LookupTabulated(r12_table, r)
+            else
+                r6 = (sigma / r)**6
+                r12 = r6 * r6
+            end if
             energy = four * epsilon * (r12 - r6)
         end if
 

@@ -10,6 +10,8 @@ contains
     subroutine PrecomputeTable()
         ! Example: only erfc/r table for now
         call InitializeTabulatedErfcR(erfc_r_table, ewald%alpha, input%real_space_cutoff)
+        call InitializeTabulatedRPower(r6_table, input%real_space_cutoff, 6)
+        call InitializeTabulatedRPower(r12_table, input%real_space_cutoff, 12)
     end subroutine PrecomputeTable
 
     ! Precomputes a tabulated version of the function erfc(alpha*r)/r for faster
@@ -26,7 +28,6 @@ contains
         real(real64) :: r                         ! Current distance corresponding to table grid point
 
         ! Allocate arrays for grid points (x) and function values (f)
-        ! Using global parameter TABULATED_POINTS from parameters module
         allocate(table%x(0:TABULATED_POINTS))
         allocate(table%f(0:TABULATED_POINTS))
         table%n = TABULATED_POINTS
@@ -46,6 +47,41 @@ contains
         ! Mark table as initialized
         table%initialized = .true.
     end subroutine InitializeTabulatedErfcR
+
+    ! Precompute a tabulated version of r^power for faster evaluation
+    subroutine InitializeTabulatedRPower(table, r_cut, power)
+
+        ! Input/Output
+        type(tabulated), intent(inout) :: table ! Table structure to store x and f arrays
+        real(real64), intent(in) :: r_cut    ! Maximum distance to tabulate
+        integer, intent(in) :: power         ! Power to raise r
+
+        ! Local variables
+        integer :: i
+        real(real64) :: r
+
+        ! Allocate arrays
+        allocate(table%x(0:TABULATED_POINTS))
+        allocate(table%f(0:TABULATED_POINTS))
+        table%n = TABULATED_POINTS
+        table%dx = r_cut / real(TABULATED_POINTS, real64)
+
+        ! Fill the table
+        do i = 0, TABULATED_POINTS
+            r = i * table%dx
+            table%x(i) = r
+            if (r < error) then
+                ! Avoid 0^power singularities
+                table%f(i) = zero
+            else
+                table%f(i) = r**power
+            end if
+        end do
+
+        ! Mark table as initialized
+        table%initialized = .true.
+
+    end subroutine InitializeTabulatedRPower
 
     ! Linear interpolation in a tabulated function
     pure function LookupTabulated(table, r) result(f_r)

@@ -185,5 +185,7 @@ module simulation_state
         logical :: initialized = .false.        ! Flag to indicate table is ready
     end type tabulated
     type(tabulated) :: erfc_r_table             ! For precomputed erfc(r) / r
+    type(tabulated) :: r6_table                 ! For precomputed r**6
+    type(tabulated) :: r12_table                ! For precomputed r**12
 
 end module simulation_state
