@@ -19,15 +19,13 @@ module simulation_state
     type :: counter_type
         integer :: rotations = 0             ! Counter for rotational Monte Carlo moves
         integer :: translations = 0          ! Counter for translational Monte Carlo moves
-        integer :: big_moves = 0             ! Counter for large displacement moves
         integer :: creations = 0             ! Counter for creation moves
         integer :: deletions = 0             ! Counter for deletion moves
-        integer :: swap = 0                  ! Counter for swa moves
+        integer :: swap = 0                  ! Counter for swap moves
         integer :: trial_translations = 0    ! Counter for trial translation moves
         integer :: trial_rotations = 0       ! Counter for trial rotation moves
-        integer :: trial_bigmoves = 0        ! Counter for trial big moves
         integer :: trial_creations = 0       ! Counter for trial rotation moves
-        integer :: trial_deletions = 0       ! Counter for trial big moves
+        integer :: trial_deletions = 0       ! Counter for trial deletion moves
         integer :: trial_swap = 0            ! Counter for swap moves
     end type counter_type
     type(counter_type) :: counter
@@ -36,7 +34,6 @@ module simulation_state
     type :: proba_type
         real(real64) :: translation             ! Probability of attempting a translation move
         real(real64) :: rotation                ! Probability of attempting a rotation move
-        real(real64) :: big_move                ! Probability of attempting a big move
         real(real64) :: insertion_deletion      ! Probability of attempting an insertion/deletion
         real(real64) :: swap                    ! Probability of attempting a swap move
     end type proba_type

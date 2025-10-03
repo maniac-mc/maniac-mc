@@ -12,17 +12,21 @@ module parameters
     integer, parameter :: NB_MAX_IMPROPER = 20000   ! Maximum number of improper per residue
 
     ! Parameters controlling the MC adjustement
-    real(real64), parameter :: TARGET_ACCEPTANCE = 0.40      ! Target acceptance ratio for adaptive MC moves
+    real(real64), parameter :: TARGET_ACCEPTANCE = 0.40d0    ! Target acceptance ratio for adaptive MC moves
     real(real64), parameter :: TOL_ACCEPTANCE    = 0.05d0    ! Tolerance window around target acceptance
     real(real64), parameter :: MIN_TRANSLATION_STEP = 1.0d-3 ! Minimum allowed translation displacement (Å)
     real(real64), parameter :: MAX_TRANSLATION_STEP = 3.0d0  ! Maximum allowed translation displacement (Å)
     real(real64), parameter :: MIN_ROTATION_ANGLE  = 1.0d-3  ! Minimum allowed rotation angle (rad)
     real(real64), parameter :: MAX_ROTATION_ANGLE  = 0.78d0  ! Maximum allowed rotation angle (~45° in rad)
+    real(real64), parameter :: PROB_CREATE_DELETE = 0.5d0    ! Probability for insertion/deletion
     integer, parameter :: MIN_TRIALS_FOR_RECALIBRATION = 500 ! Minimum trials before recalibrating step sizes
 
+    ! Parameters controlling the outputs
+    integer, parameter :: BOX_WIDTH = 78
+
     ! Parameters for unit conversion
-    real(real64), parameter :: A3_TO_M3 = 1.0D-30    ! Conversion factor: 1 Å³ → 1.0E-30 m³
-    real(real64), parameter :: ATM_TO_PA = 1.01325D5 ! Conversion factor: 1 atm → 1.01325 × 10^5 Pa
+    real(real64), parameter :: A3_TO_M3 = 1.0d-30    ! Conversion factor: 1 Å³ → 1.0E-30 m³
+    real(real64), parameter :: ATM_TO_PA = 1.01325d5 ! Conversion factor: 1 atm → 1.01325 × 10^5 Pa
 
     ! File names
     character(len=*), parameter :: data_filename = 'topology.data' ! Topology data file
@@ -37,7 +41,6 @@ module parameters
 
     ! In module parameters
     integer, parameter :: TABULATED_POINTS = 5000  ! Default number of points in tabulated functions
-
     logical, parameter :: use_table = .true.        ! To fix: make it an input parameter for user
 
 end module parameters

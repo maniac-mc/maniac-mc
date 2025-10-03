@@ -39,8 +39,8 @@ contains
 
         character(*), intent(in) :: msg
 
-        write(*,*) TRIM(msg)
-        write(out_unit,*) TRIM(msg)
+        write(*,*) trim(msg)
+        write(out_unit,*) trim(msg)
         flush(out_unit) ! Forces the data to be written to disk
 
     end subroutine LogMessage
@@ -48,20 +48,20 @@ contains
     ! Subroutine: LogStartMC
     ! Purpose   : Log the start of the Monte Carlo loop with a modern ASCII style
     subroutine LogStartMC()
+
         implicit none
-        integer, parameter :: box_width = 78
 
         ! Blank line before message
         call LogMessage("")
 
         ! Top border
-        call LogMessage("+" // repeat_char("=", box_width-2) // "+")
+        call LogMessage("+" // repeat_char("-", BOX_WIDTH-2) // "+")
 
         ! Message line centered
-        call BoxLine("Started Monte Carlo Loop", box_width)
+        call BoxLine("Started Monte Carlo Loop", BOX_WIDTH)
 
         ! Bottom border
-        call LogMessage("+" // repeat_char("=", box_width-2) // "+")
+        call LogMessage("+" // repeat_char("-", BOX_WIDTH-2) // "+")
 
         ! Blank line after message
         call LogMessage("")
@@ -73,15 +73,21 @@ contains
     ! Writes a line inside the ASCII box, padded to box_width
     !-----------------------------------------------------------------------
     subroutine BoxLine(text, width)
+
+        ! Input variables
         character(len=*), intent(in) :: text
         integer, intent(in) :: width
+
+        ! Local variables
         character(len=width-4) :: padded
 
         padded = adjustl(text)
         if (len_trim(padded) < width-4) then
             padded(len_trim(padded)+1:) = ' '  ! pad with spaces
         end if
+
         call LogMessage("| " // padded(1:width-4) // " |")
+
     end subroutine BoxLine
 
     !---------------------------------------------------------------------------
@@ -89,51 +95,46 @@ contains
     ! Purpose   : Print a formatted termination footer with Monte Carlo summary
     !---------------------------------------------------------------------------
     subroutine PrintTerminationMessage()
-        use simulation_state       ! Access counters and output path
+
         implicit none
 
-        integer, parameter :: box_width = 78
         character(len=256) :: line
 
         ! Blank line before footer
         call LogMessage("")
 
         ! Top border
-        call LogMessage("+" // repeat_char("-", box_width-2) // "+")
+        call LogMessage("+" // repeat_char("-", BOX_WIDTH-2) // "+")
 
         ! Title
-        call BoxLine("MANIAC-MC Simulation Completed", box_width)
-        call BoxLine("", box_width)  ! blank line inside box
+        call BoxLine("MANIAC-MC Simulation Completed", BOX_WIDTH)
+        call BoxLine("", BOX_WIDTH)  ! blank line inside box
 
         ! Summary statistics (Trial / Accepted moves)
         write(line,'(A,I8,A,I8)') "  Translations (Trial/Accepted): ", &
             counter%trial_translations, " / ", counter%translations
-        call BoxLine(trim(line), box_width)
+        call BoxLine(trim(line), BOX_WIDTH)
 
         write(line,'(A,I8,A,I8)') "  Rotations    (Trial/Accepted): ", &
             counter%trial_rotations, " / ", counter%rotations
-        call BoxLine(trim(line), box_width)
-
-        write(line,'(A,I8,A,I8)') "  Big moves    (Trial/Accepted): ", &
-            counter%trial_bigmoves, " / ", counter%big_moves
-        call BoxLine(trim(line), box_width)
+        call BoxLine(trim(line), BOX_WIDTH)
 
         write(line,'(A,I8,A,I8)') "  Creations    (Trial/Accepted): ", &
             counter%trial_creations, " / ", counter%creations
-        call BoxLine(trim(line), box_width)
+        call BoxLine(trim(line), BOX_WIDTH)
 
         write(line,'(A,I8,A,I8)') "  Deletions    (Trial/Accepted): ", &
             counter%trial_deletions, " / ", counter%deletions
-        call BoxLine(trim(line), box_width)
+        call BoxLine(trim(line), BOX_WIDTH)
 
-        call BoxLine("", box_width)  ! blank line inside box
+        call BoxLine("", BOX_WIDTH)  ! blank line inside box
 
         ! Output path information
-        call BoxLine("All output files have been written to:", box_width)
-        call BoxLine(trim(output_path), box_width)
+        call BoxLine("All output files have been written to:", BOX_WIDTH)
+        call BoxLine(trim(output_path), BOX_WIDTH)
 
         ! Bottom border
-        call LogMessage("+" // repeat_char("-", box_width-2) // "+")
+        call LogMessage("+" // repeat_char("-", BOX_WIDTH-2) // "+")
 
         ! Blank line after footer
         call LogMessage("")
@@ -207,7 +208,6 @@ contains
             input%translation_step, input%rotation_step_angle, &
             counter%translations, counter%trial_translations, &
             counter%rotations, counter%trial_rotations, &
-            counter%big_moves, counter%trial_bigmoves, &
             counter%creations, counter%trial_creations, &
             counter%deletions, counter%trial_deletions
         call LogMessage(formatted_msg)
@@ -231,7 +231,6 @@ contains
         real(real64) :: e_self    ! Ewald self-energy correction
         real(real64) :: e_intra ! Intra-molecular Coulombic energy
         character(LEN=1024) :: formatted_msg   ! Formatted message for logging
-        integer, parameter :: box_width = 78
 
         ! Convert energies to kcal/mol
         e_recip   = energy%recip_coulomb * KB_kcalmol
@@ -249,24 +248,24 @@ contains
         call LogMessage("")
 
         ! Top border
-        call LogMessage("+" // repeat_char("-", box_width-2) // "+")
+        call LogMessage("+" // repeat_char("-", BOX_WIDTH-2) // "+")
 
         ! Box title
-        call BoxLine("Final Energy Report", box_width)
-        call BoxLine("", box_width)
+        call BoxLine("Final Energy Report", BOX_WIDTH)
+        call BoxLine("", BOX_WIDTH)
 
         ! Column headers
-        call BoxLine("  Step        TotEng        E_vdwl        E_coul        E_long", box_width)
+        call BoxLine("  Step        TotEng        E_vdwl        E_coul        E_long", BOX_WIDTH)
 
         ! Energies line
         write(formatted_msg,'(I10,1X,F15.6,1X,F15.6,1X,F15.6,1X,F15.6)') &
             current_block, e_tot, e_non_coulomb, e_coul, e_long
-        call BoxLine(trim(formatted_msg), box_width)
+        call BoxLine(trim(formatted_msg), BOX_WIDTH)
 
-        call BoxLine("", box_width)  ! blank line inside box
+        call BoxLine("", BOX_WIDTH)  ! blank line inside box
 
         ! Bottom border
-        call LogMessage("+" // repeat_char("-", box_width-2) // "+")
+        call LogMessage("+" // repeat_char("-", BOX_WIDTH-2) // "+")
 
         ! Blank line after box
         call LogMessage("")
@@ -304,7 +303,7 @@ contains
         call LogMessage("")
         call LogMessage("====== Import parameter file ======")
         call LogMessage("")
-        write(formatted_msg, '("Reading file ", A)') TRIM(input_file_name) ! Format message with input file name
+        write(formatted_msg, '("Reading file ", A)') trim(input_file_name) ! Format message with input file name
         call LogMessage(formatted_msg)                                     ! Log the input file name
 
         n_pairs = 0 ! Initialize the pair counter
@@ -359,7 +358,7 @@ contains
         ! === Step 9: Logging ===
         call LogMessage("")
         call LogMessage("====== Import data file ======")
-        write(formatted_msg, '("Reading file ", A)') TRIM(data_file_name)
+        write(formatted_msg, '("Reading file ", A)') trim(data_file_name)
         call LogMessage(formatted_msg)
         call LogMessage("")
         write(formatted_msg, '("Number of atoms: ", I0)') box%num_atoms
@@ -374,12 +373,12 @@ contains
                 ! Active residue present in data file
                 active_molecule_count = active_molecule_count + box%num_residues(i)
                 write(formatted_msg, '("Active residue ", A, " found in the data file: ", I0)') &
-                    TRIM(res%names_1d(i)), box%num_residues(i)
+                    trim(res%names_1d(i)), box%num_residues(i)
             else if ((box%num_residues(i) /= 0) .and. (input%is_active(i) == 0)) then
                 ! Inactive residue present in data file
                 active_molecule_count = active_molecule_count + box%num_residues(i)
                 write(formatted_msg, '("Inactive residue ", A, " found in the data file: ", I0)') &
-                    TRIM(res%names_1d(i)), box%num_residues(i)
+                    trim(res%names_1d(i)), box%num_residues(i)
             else if ((box%num_residues(i) == 0) .and. (input%is_active(i) == 0) .and. (is_primary)) then
                 ! Inactive residue defined in input but not present in data file
                 call AbortRun("Inactive residue '" // trim(res%names_1d(i)) // "' (ID=" // &
@@ -624,26 +623,19 @@ contains
 
     end subroutine CheckMoleculeIndex
 
-    subroutine ValidateInputTranslation(step, move_type)
+    subroutine ValidateInputTranslation(step)
 
         implicit none
 
         ! Input arguments
         real(real64), intent(in) :: step         ! Translation step
-        integer, intent(in) :: move_type         ! Move type: 0 or 1
 
         ! Local
         character(len=200) :: formatted_msg
 
         ! Check translation step
-        if (step <= 0.0_real64) then
+        if (step <= zero) then
             write(formatted_msg, '(A,F6.3)') "ERROR: translation_step must be positive. Provided value: ", step
-            call AbortRun(trim(formatted_msg))
-        end if
-
-        ! Check move_type
-        if (move_type /= TYPE_SMALLMOVE .and. move_type /= TYPE_BIGMOVE) then
-            write(formatted_msg, '(A,I0)') "ERROR: move_type must be 0 or 1. Provided value: ", move_type
             call AbortRun(trim(formatted_msg))
         end if
 
@@ -719,8 +711,6 @@ contains
         write(msg, '("Translation proba: ", F10.2)') proba%translation
         call LogMessage(msg)
         write(msg, '("Rotation proba: ", F10.2)') proba%rotation
-        call LogMessage(msg)
-        write(msg, '("Big move proba: ", F10.2)') proba%big_move
         call LogMessage(msg)
         write(msg, '("Insertion deletion proba: ", F10.2)') proba%insertion_deletion
         call LogMessage(msg)

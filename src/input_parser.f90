@@ -95,26 +95,23 @@ contains
         real(real64) :: scale_factor  ! Factor used to rescale probabilities so they sum to 1.0
 
         ! Compute total probability
-        proba_total = proba%translation + proba%rotation + proba%big_move + &
-                    proba%insertion_deletion + proba%swap
+        proba_total = proba%translation + proba%rotation + proba%insertion_deletion + proba%swap
 
         ! Rescale if not exactly 1.0
-        if (abs(proba_total - 1.0_real64) > 1.0e-6_real64) then
-            scale_factor = 1.0_real64 / proba_total
+        if (abs(proba_total - one) > error) then
+            scale_factor = one / proba_total
             proba%translation        = proba%translation * scale_factor
             proba%rotation           = proba%rotation * scale_factor
-            proba%big_move           = proba%big_move * scale_factor
             proba%insertion_deletion = proba%insertion_deletion * scale_factor
             proba%swap               = proba%swap * scale_factor
             call WarnUser("Move probabilities rescaled to sum to 1.0")
         end if
 
         ! Recompute total to validate
-        proba_total = proba%translation + proba%rotation + proba%big_move + &
-                    proba%insertion_deletion + proba%swap
+        proba_total = proba%translation + proba%rotation + proba%insertion_deletion + proba%swap
 
         ! Abort if still invalid
-        if (abs(proba_total - 1.0_real64) > 1.0e-6_real64) then
+        if (abs(proba_total - one) > error) then
             call AbortRun("Invalid move probabilities: must sum to 1.0", 1)
         end if
 
@@ -325,7 +322,7 @@ contains
         logical :: has_cutoff, has_tolerance
         logical :: has_translation_step, has_rotation_step, has_recalibrate
         logical :: has_translation_proba, has_rotation_proba
-        logical :: has_bigmove_proba, has_insertdel_proba, has_swap_proba
+        logical :: has_insertdel_proba, has_swap_proba
 
         has_nb_block = .false.
         has_nb_step = .false.
@@ -338,7 +335,6 @@ contains
         has_recalibrate = .false.
         has_translation_proba = .false.
         has_rotation_proba = .false.
-        has_bigmove_proba = .false.
         has_insertdel_proba = .false.
         has_swap_proba = .false.
 
@@ -438,14 +434,6 @@ contains
                     "Invalid rotation_proba: must be in [0,1]"
                 proba%rotation = val_real
                 has_rotation_proba = .true.
-
-            case ("big_move_proba")
-                read(rest_line, *, iostat=ios) val_real
-                if (ios /= 0) error stop "Error reading big_move_proba"
-                if (val_real < 0.0_real64 .or. val_real > 1.0_real64) error stop &
-                    "Invalid big_move_proba: must be in [0,1]"
-                proba%big_move = val_real
-                has_bigmove_proba = .true.
 
             case ("insertion_deletion_proba")
                 read(rest_line, *, iostat=ios) val_real
@@ -592,17 +580,16 @@ contains
         ! Non mandatoray parameters
         if (.not. has_recalibrate) input%recalibrate_moves = .false.
         ! === Ensure only enabled moves are counted ===
-        if (.not. has_insertdel_proba) proba%insertion_deletion = 0.0_real64
-        if (.not. has_bigmove_proba) proba%big_move = 0.0_real64
-        if (.not. has_rotation_proba) proba%rotation = 0.0_real64
-        if (.not. has_translation_proba) proba%translation = 0.0_real64
-        if (.not. has_swap_proba) proba%swap = 0.0_real64
+        if (.not. has_insertdel_proba) proba%insertion_deletion = zero
+        if (.not. has_rotation_proba) proba%rotation = zero
+        if (.not. has_translation_proba) proba%translation = zero
+        if (.not. has_swap_proba) proba%swap = zero
 
         ! === Sum of enabled probabilities ===
-        sum_proba = proba%translation + proba%rotation + proba%big_move + proba%insertion_deletion + proba%swap
+        sum_proba = proba%translation + proba%rotation + proba%insertion_deletion + proba%swap
 
         ! === Check for impossible case ===
-        if (sum_proba < 1.0e-12_real64) then
+        if (sum_proba < error) then
             call AbortRun("Invalid move probabilities: all enabled moves have zero probability", 1)
         end if
 
