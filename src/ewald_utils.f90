@@ -347,23 +347,48 @@ contains
     end subroutine SaveSingleMolFourierTerms
 
     !--------------------------------------------------------------------
-    ! ComputeReciprocalEnergy_singlemol
+    ! ComputeRecipEnergySingleMol
     !
-    ! Computes the reciprocal-space contribution to the Coulomb energy
-    ! for a single molecule or residue using the Ewald summation method.
+    ! Purpose:
+    !   Computes the reciprocal-space Coulomb energy contribution from a
+    !   single molecule or residue using the Ewald summation method.
     !
-    ! For each precomputed reciprocal lattice vector (k-vector):
-    !   1. Update the Fourier coefficient (structure factor amplitude)
-    !      using atom charges and phase factors for the current molecule.
-    !      The difference between new and old phase factors ensures
-    !      incremental updates during MC/MD moves.
-    !   2. Accumulate the corresponding energy contribution:
-    !         E_k = form_factor * W(k) * |A(k)|^2
-    !      where W(k) is the reciprocal constant and A(k) is the structure factor.
+    ! Description:
+    !   For each precomputed reciprocal lattice vector (k-vector):
+    !     1. Update the structure factor amplitude A(k) depending on the
+    !        operation:
+    !          - Creation:   A(k) ← A(k) + Σ q_i e^(i k·r_i,new)
+    !          - Deletion:   A(k) ← A(k) - Σ q_i e^(i k·r_i,old)
+    !          - Displacement/Update:
+    !                        A(k) ← A(k) + Σ q_i [ e^(i k·r_i,new) - e^(i k·r_i,old) ]
     !
-    ! The final result is converted to physical energy units (eV per molecule).
+    !     2. Accumulate the reciprocal-space energy contribution:
+    !            E_k = form_factor * W(k) * |A(k)|^2
+    !        where:
+    !          - form_factor accounts for symmetry (1 for kx=0, 2 otherwise),
+    !          - W(k) is the precomputed reciprocal constant,
+    !          - A(k) is the structure factor amplitude.
+    !
+    !   After processing all k-vectors, the total energy is scaled into
+    !   physical units (eV per molecule).
+    !
+    ! Input arguments:
+    !   residue_type   - index of the residue type
+    !   molecule_index - index of the molecule
+    !   is_creation    - optional flag, true if molecule is being created
+    !   is_deletion    - optional flag, true if molecule is being deleted
+    !
+    ! Output arguments:
+    !   u_recipCoulomb_new - reciprocal-space Coulomb energy (in eV)
+    !
+    ! Notes:
+    !   - If neither is_creation nor is_deletion is present, the routine
+    !     assumes a standard displacement/MC move and applies the
+    !     difference (new - old) update.
+    !   - Updates both the reciprocal amplitudes and the total reciprocal
+    !     energy consistently.
     !--------------------------------------------------------------------
-    subroutine ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, u_recipCoulomb_new)
+    subroutine ComputeRecipEnergySingleMol(residue_type, molecule_index, u_recipCoulomb_new, is_creation, is_deletion)
 
         implicit none
 
@@ -371,6 +396,8 @@ contains
         integer, intent(in) :: residue_type    ! Index of the residue type
         integer, intent(in) :: molecule_index  ! Index of the molecule in the system
         real(real64), intent(out) :: u_recipCoulomb_new  ! Output: reciprocal-space Coulomb energy
+        logical, intent(in), optional :: is_creation
+        logical, intent(in), optional :: is_deletion
         ! Local variables
         integer :: kx_idx, ky_idx, kz_idx      ! Components of current reciprocal lattice vector
         integer :: idx                         ! Loop index over precomputed k-vectors
@@ -380,6 +407,22 @@ contains
         real(real64), dimension(:), allocatable :: charges   ! Partial charges of atoms
         complex(real64), dimension(:), allocatable :: phase_new   ! Updated phase factor product
         complex(real64), dimension(:), allocatable :: phase_old   ! Previous phase factor product
+        logical :: creation_flag
+        logical :: deletion_flag
+
+        ! Determine if this is a creation scenario
+        if (present(is_creation)) then
+            creation_flag = is_creation
+        else
+            creation_flag = .false.
+        end if
+
+       ! Determine if this is a deletion scenario
+        if (present(is_deletion)) then
+            deletion_flag = is_deletion
+        else
+            deletion_flag = .false.
+        end if
 
         ! Initialize energy accumulator
         u_recipCoulomb_new = zero
@@ -413,8 +456,19 @@ contains
                         ewald%phase_factor_z_old(1:natoms, kz_idx)
 
             ! Update Fourier coefficient A(k)
-            ! A(k) ← A(k) + Σ q_i [ e^(i k·r_i,new) - e^(i k·r_i,old) ]
-            ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + sum(charges * (phase_new - phase_old))
+            if (creation_flag) then
+                ! Molecule creation
+                ! A(k) ← A(k) + Σ q_i [ e^(i k·r_i,new) ]
+                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + sum(charges * phase_new)
+            else if (deletion_flag) then
+                ! Molecule deletion
+                ! A(k) ← A(k) + Σ q_i [ - e^(i k·r_i,old) ]
+                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) - sum(charges * phase_old)
+            else
+                ! Standard move (translation, rotation)
+                ! A(k) ← A(k) + Σ q_i [ e^(i k·r_i,new) - e^(i k·r_i,old) ]
+                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + sum(charges * (phase_new - phase_old))
+            end if
 
             ! Compute squared modulus of the structure factor amplitude
             amplitude_sq = amplitude_squared(ewald%recip_amplitude(idx))
@@ -432,7 +486,7 @@ contains
         !----------------------------------------------
         u_recipCoulomb_new = u_recipCoulomb_new * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
 
-    end subroutine ComputeReciprocalEnergy_singlemol
+    end subroutine ComputeRecipEnergySingleMol
 
     !--------------------------------------------------------------------
     ! RestoreSingleMolFourier
@@ -595,120 +649,6 @@ contains
         val = real(z*conjg(z), kind=real64)
 
     end function amplitude_squared
-
-    subroutine UpdateReciprocalEnergy_creation(residue_type, molecule_index, u_recipCoulomb_new)
-
-        implicit none
-
-        ! Input arguments
-        integer, intent(in) :: residue_type
-        integer, intent(in) :: molecule_index
-        real(real64), intent(out) :: u_recipCoulomb_new
-
-        ! Local variables
-        integer :: kx_idx, ky_idx, kz_idx
-        integer :: number_of_kpoints
-        real(real64) :: form_factor
-        real(real64) :: k_squared
-
-        ! Initialize
-        u_recipCoulomb_new = 0.0_real64
-        number_of_kpoints = 0
-
-        ! Update recip_amplitude by adding (is_creation=.true.) or subtracting (is_creation=.false.) the molecule's contribution
-        do kx_idx = 0, ewald%kmax(1)
-
-            if (kx_idx == 0) then
-                form_factor = 1.0_real64
-            else
-                form_factor = 2.0_real64
-            end if
-
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
-
-                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
-                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
-                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
-
-                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1.0_real64) cycle
-
-                    number_of_kpoints = number_of_kpoints + 1
-
-                    ! Update recip_amplitude(number_of_kpoints)
-                    ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints) + &
-                        sum(primary%atom_charges(residue_type, 1:nb%atom_in_residue(residue_type)) * &
-                            ewald%phase_factor_x(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), kx_idx) * &
-                            ewald%phase_factor_y(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), ky_idx) * &
-                            ewald%phase_factor_z(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), kz_idx))
-
-                    u_recipCoulomb_new = u_recipCoulomb_new + form_factor * ewald%recip_constants(number_of_kpoints) * &
-                        real(ewald%recip_amplitude(number_of_kpoints) * CONJG(ewald%recip_amplitude(number_of_kpoints)), KIND=8)
-                
-                end do
-            end do
-        end do
-
-        ! Scale energy
-        u_recipCoulomb_new = u_recipCoulomb_new * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
-
-    end subroutine UpdateReciprocalEnergy_creation
-
-    subroutine UpdateReciprocalEnergy_deletion(residue_type, u_recipCoulomb_new)
-
-        implicit none
-
-        ! Input arguments
-        integer, intent(in) :: residue_type
-        real(real64), intent(out) :: u_recipCoulomb_new
-
-        ! Local variables
-        integer :: kx_idx, ky_idx, kz_idx
-        integer :: number_of_kpoints
-        real(real64) :: form_factor, k_squared
-
-        ! Initialize
-        u_recipCoulomb_new = 0.0_real64
-        number_of_kpoints = 0
-
-        ! Update recip_amplitude by adding (is_creation=.true.) or subtracting (is_creation=.false.) the molecule's contribution
-        do kx_idx = 0, ewald%kmax(1)
-
-            if (kx_idx == 0) then
-                form_factor = 1.0_real64
-            else
-                form_factor = 2.0_real64
-            end if
-
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
-
-                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
-                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
-                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
-
-                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1.0_real64) cycle
-
-                    number_of_kpoints = number_of_kpoints + 1
-
-                    ! Update recip_amplitude(number_of_kpoints)
-                    ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints) - &
-                        sum(primary%atom_charges(residue_type, 1:nb%atom_in_residue(residue_type)) * &
-                            ewald%phase_factor_x_old(1:nb%atom_in_residue(residue_type), kx_idx) * &
-                            ewald%phase_factor_y_old(1:nb%atom_in_residue(residue_type), ky_idx) * &
-                            ewald%phase_factor_z_old(1:nb%atom_in_residue(residue_type), kz_idx))
-
-                    u_recipCoulomb_new = u_recipCoulomb_new + form_factor * ewald%recip_constants(number_of_kpoints) * &
-                        real(ewald%recip_amplitude(number_of_kpoints) * CONJG(ewald%recip_amplitude(number_of_kpoints)), KIND=8)
-                
-                end do
-            end do
-        end do
-
-        ! Scale energy
-        u_recipCoulomb_new = u_recipCoulomb_new * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
-
-    end subroutine UpdateReciprocalEnergy_deletion
 
     !------------------------------------------------------------------------------
     ! ComputeEwaldSelfInteraction_singlemol

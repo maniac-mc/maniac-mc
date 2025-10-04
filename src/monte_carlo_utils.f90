@@ -302,7 +302,7 @@ contains
             ! Recompute Fourier terms for the moved molecule
             call SingleMolFourierTerms(residue_type, molecule_index)
             ! Creation scenario: compute all energy components
-            call UpdateReciprocalEnergy_creation(residue_type, molecule_index, new%recip_coulomb)
+            call ComputeRecipEnergySingleMol(residue_type, molecule_index, new%recip_coulomb, is_creation = creation_flag)
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, new%non_coulomb, new%coulomb)
             call ComputeEwaldSelfInteraction_singlemol(residue_type, new%ewald_self)
             call ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, new%intra_coulomb)
@@ -314,13 +314,13 @@ contains
             new%coulomb = 0
             new%ewald_self = 0
             new%intra_coulomb = 0
-            call UpdateReciprocalEnergy_deletion(residue_type, new%recip_coulomb)
+            call ComputeRecipEnergySingleMol(residue_type, molecule_index, new%recip_coulomb, is_creation = deletion_flag)
             new%total = new%non_coulomb + new%coulomb + new%recip_coulomb + new%ewald_self + new%intra_coulomb
         else
             ! Recompute Fourier terms for the moved molecule
             call SingleMolFourierTerms(residue_type, molecule_index)
             ! Normal move: only recompute reciprocal + pairwise interactions
-            call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, new%recip_coulomb)
+            call ComputeRecipEnergySingleMol(residue_type, molecule_index, new%recip_coulomb)
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, new%non_coulomb, new%coulomb)
             ! Total energy of the molecule
             new%total = new%non_coulomb + new%coulomb + new%recip_coulomb
@@ -399,7 +399,7 @@ contains
         else
             ! Normal pre-move scenario: molecule exists
             ! Compute current energy (cf e_old)
-            call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, old%recip_coulomb)
+            call ComputeRecipEnergySingleMol(residue_type, molecule_index, old%recip_coulomb)
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
             ! Note: Translation/Translation does not affect ewald_self or intra_coulomb
             old%total = old%non_coulomb + old%coulomb + old%recip_coulomb
