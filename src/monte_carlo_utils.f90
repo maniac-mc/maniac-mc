@@ -292,7 +292,7 @@ contains
         end if
 
         ! Determine if this is a deletion scenario
-        if (present(is_creation)) then
+        if (present(is_deletion)) then
             deletion_flag = is_deletion
         else
             deletion_flag = .false.
@@ -375,7 +375,7 @@ contains
         end if
 
        ! Determine if this is a deletion scenario
-        if (present(is_creation)) then
+        if (present(is_deletion)) then
             deletion_flag = is_deletion
         else
             deletion_flag = .false.

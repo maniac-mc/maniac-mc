@@ -47,7 +47,7 @@ contains
 
         ! Compute old energy
         is_creation = .true.
-        call ComputeOldEnergy(residue_type, molecule_index, old, is_creation)
+        call ComputeOldEnergy(residue_type, molecule_index, old, is_creation = is_creation)
 
         ! Increase the residue and atom counts
         primary%num_residues(residue_type) = primary%num_residues(residue_type) + 1
