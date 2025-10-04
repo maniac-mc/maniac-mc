@@ -270,57 +270,140 @@ contains
     !   Compute the updated energy of a single molecule after a trial move 
     !   (translation or rotation) for use in the Monte Carlo acceptance test.
     !---------------------------------------------------------------------------
-    subroutine ComputeNewEnergy(residue_type, molecule_index, new)
+    subroutine ComputeNewEnergy(residue_type, molecule_index, new, is_creation, is_deletion)
 
         implicit none
 
+        ! Input arguments
         integer, intent(in) :: residue_type         ! Residue type to be moved
         integer, intent(in) :: molecule_index       ! Index of the molecule to move
         type(energy_state), intent(out) :: new      ! New energy states
+        logical, intent(in), optional :: is_creation
+        logical, intent(in), optional :: is_deletion
+        ! Local variables
+        logical :: creation_flag
+        logical :: deletion_flag
 
-        ! Recompute Fourier terms for the moved molecule
-        call SingleMolFourierTerms(residue_type, molecule_index)
+        ! Determine if this is a creation scenario
+        if (present(is_creation)) then
+            creation_flag = is_creation
+        else
+            creation_flag = .false.
+        end if
 
-        ! Compute new energies
-        call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, new%recip_coulomb)
-        call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, new%non_coulomb, new%coulomb)
+        ! Determine if this is a deletion scenario
+        if (present(is_creation)) then
+            deletion_flag = is_deletion
+        else
+            deletion_flag = .false.
+        end if
 
-        ! Total energy of the molecule
-        new%total = new%non_coulomb + new%coulomb + new%recip_coulomb
-
+        if (creation_flag) then
+            ! Recompute Fourier terms for the moved molecule
+            call SingleMolFourierTerms(residue_type, molecule_index)
+            ! Creation scenario: compute all energy components
+            call UpdateReciprocalEnergy_creation(residue_type, molecule_index, new%recip_coulomb)
+            call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, new%non_coulomb, new%coulomb)
+            call ComputeEwaldSelfInteraction_singlemol(residue_type, new%ewald_self)
+            call ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, new%intra_coulomb)
+            new%total = new%non_coulomb + new%coulomb + new%recip_coulomb + new%ewald_self + new%intra_coulomb
+        else if (deletion_flag) then
+            ! Most energy terms of the absence of a molecule are 0
+            ! Must only recalculate energy%recip_coulomb
+            new%non_coulomb = 0
+            new%coulomb = 0
+            new%ewald_self = 0
+            new%intra_coulomb = 0
+            call UpdateReciprocalEnergy_deletion(residue_type, new%recip_coulomb)
+            new%total = new%non_coulomb + new%coulomb + new%recip_coulomb + new%ewald_self + new%intra_coulomb
+        else
+            ! Recompute Fourier terms for the moved molecule
+            call SingleMolFourierTerms(residue_type, molecule_index)
+            ! Normal move: only recompute reciprocal + pairwise interactions
+            call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, new%recip_coulomb)
+            call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, new%non_coulomb, new%coulomb)
+            ! Total energy of the molecule
+            new%total = new%non_coulomb + new%coulomb + new%recip_coulomb
+        end if
+        
     end subroutine ComputeNewEnergy
-
+        
     !---------------------------------------------------------------------------
     ! Purpose:
-    !   Compute the current (pre-move) energy of a single molecule for use
-    !   in the Monte Carlo Metropolis criterion.
+    !   Compute the "old" (pre-move) energy of a single molecule for Monte Carlo
+    !   Metropolis acceptance criterion.
     !
     ! Inputs:
     !   residue_type   - Integer: Type of residue/molecule
     !   molecule_index - Integer: Index of the molecule in the system
+    !   is_creation    - Optional logical flag:
+    !                    .true. if the molecule does not yet exist (creation scenario)
+    !                    .false. or absent for existing molecules
     !
     ! Outputs:
     !   old            - Type(energy_state): Energy components before trial move
     !
     ! Notes:
-    !   - Computes reciprocal-space Coulomb energy using Ewald summation.
-    !   - Computes pairwise interaction energies (van der Waals + real-space Coulomb).
-    !   - Translation or rotation does not affect self-energy or intra-molecular Coulomb terms.
+    !   - For existing molecules, computes:
+    !       * Reciprocal-space Coulomb energy via Ewald summation
+    !       * Pairwise interaction energies (van der Waals + real-space Coulomb)
+    !       * Translation/rotation does not affect self-energy or intra-molecular Coulomb terms
+    !   - For creation scenario:
+    !       * Most energy terms are set to 0 (non_coulomb, coulomb, intra_coulomb, ewald_self)
+    !       * Global reciprocal-space energy is copied from energy%recip_coulomb
+    !   - old%total stores the sum of all relevant energy components
     !---------------------------------------------------------------------------
-    subroutine ComputeOldEnergy(residue_type, molecule_index, old)
+    subroutine ComputeOldEnergy(residue_type, molecule_index, old, is_creation, is_deletion)
 
         implicit none
 
+        ! Input variables
         integer, intent(in) :: residue_type         ! Residue type to be moved
         integer, intent(in) :: molecule_index       ! Index of the molecule to move
         type(energy_state), intent(out) :: old      ! Old energy states
+        logical, intent(in), optional :: is_creation
+        logical, intent(in), optional :: is_deletion
+        ! Local variables
+        logical :: creation_flag
+        logical :: deletion_flag
 
-        ! Compute current energy (cf e_old)
-        call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, old%recip_coulomb)
-        call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
+        ! Determine if this is a creation scenario
+        if (present(is_creation)) then
+            creation_flag = is_creation
+        else
+            creation_flag = .false.
+        end if
 
-        ! Note: Translation does not affect ewald_self or intra_coulomb
-        old%total = old%non_coulomb + old%coulomb + old%recip_coulomb
+       ! Determine if this is a deletion scenario
+        if (present(is_creation)) then
+            deletion_flag = is_deletion
+        else
+            deletion_flag = .false.
+        end if
+
+        if (creation_flag) then
+            ! Creation scenario: molecule does not exist yet
+            ! Most energy terms of an unexisting molecule are 0
+            old%non_coulomb = zero
+            old%coulomb = zero
+            old%ewald_self = zero
+            old%intra_coulomb = zero
+            old%recip_coulomb = energy%recip_coulomb ! global system reciprocal energy
+            old%total = old%non_coulomb + old%coulomb + old%recip_coulomb + old%ewald_self + old%intra_coulomb
+        else if (deletion_flag) then
+            call ComputeEwaldSelfInteraction_singlemol(residue_type, old%ewald_self)
+            call ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, old%intra_coulomb)
+            call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
+            old%recip_coulomb = energy%recip_coulomb
+            old%total = old%non_coulomb + old%coulomb + old%recip_coulomb + old%ewald_self + old%intra_coulomb
+        else
+            ! Normal pre-move scenario: molecule exists
+            ! Compute current energy (cf e_old)
+            call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, old%recip_coulomb)
+            call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
+            ! Note: Translation/Translation does not affect ewald_self or intra_coulomb
+            old%total = old%non_coulomb + old%coulomb + old%recip_coulomb
+        end if
 
     end subroutine ComputeOldEnergy
 
@@ -371,7 +454,7 @@ contains
     !   - Only one of com_old or site_offset_old is allocated by the caller
     !   - Fourier terms are always saved
     !---------------------------------------------------------------------------
-    subroutine SaveMoleculeState(res_type, mol_index, com_old, site_offset_old)
+    subroutine SaveMoleculeState(res_type, mol_index, com_old, offset_old)
 
         implicit none
 
@@ -379,7 +462,7 @@ contains
         integer, intent(in) :: res_type         ! Residue type of the molecule
         integer, intent(in) :: mol_index        ! Index of the molecule
         real(real64), intent(out), optional :: com_old(3) ! Center-of-mass before move (for translation)
-        real(real64), intent(out), optional :: site_offset_old(:, :) ! Site offsets before move (for rotation)
+        real(real64), intent(out), optional :: offset_old(:, :) ! Site offsets before move (for rotation)
         ! Local variable
         integer :: natoms
 
@@ -392,9 +475,9 @@ contains
         end if
 
         ! Save site offsets if requested (rotation)
-        if (present(site_offset_old)) then
+        if (present(offset_old)) then
             natoms = nb%atom_in_residue(res_type)
-            site_offset_old(:, 1:natoms) = primary%site_offset(:, res_type, mol_index, 1:natoms)
+            offset_old(:, 1:natoms) = primary%site_offset(:, res_type, mol_index, 1:natoms)
         end if
 
     end subroutine SaveMoleculeState
@@ -435,7 +518,8 @@ contains
         end if
 
         ! Restore Fourier states
-        call RestoreFourierState_singlemol(res_type, mol_index)
+        call RestoreSingleMolFourier(res_type, mol_index)
+
     end subroutine RejectMoleculeMove
 
 end module monte_carlo_utils

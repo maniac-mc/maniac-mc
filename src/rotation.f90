@@ -49,7 +49,7 @@ contains
         ! Count trial move (success + fail)
         counter%trial_rotations = counter%trial_rotations + 1
 
-        call SaveMoleculeState(residue_type, molecule_index, site_offset_old = site_offset_old)
+        call SaveMoleculeState(residue_type, molecule_index, offset_old = site_offset_old)
 
         ! Compute previous energy
         call ComputeOldEnergy(residue_type, molecule_index, old)
