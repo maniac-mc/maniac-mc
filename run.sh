@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit on error
 
-case="LJ-gas"
+case="H2O-gas"
 
 base_energy="mc-topology/testcase-energy"
 base_adsorption="mc-topology/testcase-adsorption"

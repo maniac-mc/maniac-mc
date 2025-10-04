@@ -1,5 +1,8 @@
 module helper_utils
 
+    use simulation_state
+    use constants
+    use, intrinsic :: iso_fortran_env, only: real64
     implicit none
 
 contains
@@ -19,5 +22,58 @@ contains
             res(i:i) = ch
         end do
     end function repeat_char
+
+    !========================================================
+    ! Function: RotationMatrix
+    !
+    ! Returns a 3x3 rotation matrix for a given axis (X=1, Y=2, Z=3)
+    ! and rotation angle theta (radians).
+    !
+    ! Inputs:
+    !   axis  - integer, rotation axis (1=X, 2=Y, 3=Z)
+    !   theta - real(real64), rotation angle in radians
+    !
+    ! Output:
+    !   rotation_matrix - real(real64) 3x3 rotation matrix
+    !========================================================
+    function RotationMatrix(axis, theta) result(rotation_matrix)
+
+        implicit none
+            
+        integer, intent(in) :: axis               ! Rotation axis (1=X, 2=Y, 3=Z)
+        real(real64), intent(in) :: theta         ! Rotation angle in radians
+        real(real64) :: rotation_matrix(3,3)      ! 3x3 rotation matrix to be returned
+        real(real64) :: cos_theta, sin_theta      ! Cosine and sine of theta
+
+        ! Compute trigonometric values
+        cos_theta = cos(theta)
+        sin_theta = sin(theta)
+
+        ! Initialize as identity
+        rotation_matrix = zero
+        rotation_matrix(1,1) = one
+        rotation_matrix(2,2) = one
+        rotation_matrix(3,3) = one
+
+        ! Fill rotation matrix based on axis
+        select case(axis)
+        case(1) ! X-axis
+            rotation_matrix(2,2) = cos_theta
+            rotation_matrix(2,3) = -sin_theta
+            rotation_matrix(3,2) = sin_theta
+            rotation_matrix(3,3) = cos_theta
+        case(2) ! Y-axis
+            rotation_matrix(1,1) = cos_theta
+            rotation_matrix(1,3) = sin_theta
+            rotation_matrix(3,1) = -sin_theta
+            rotation_matrix(3,3) = cos_theta
+        case(3) ! Z-axis
+            rotation_matrix(1,1) = cos_theta
+            rotation_matrix(1,2) = -sin_theta
+            rotation_matrix(2,1) = sin_theta
+            rotation_matrix(2,2) = cos_theta
+        end select
+
+    end function RotationMatrix
 
 end module helper_utils
