@@ -200,6 +200,7 @@ contains
         allocate(ewald%recip_constants(1:ewald%num_recip_vectors))
         allocate(ewald%recip_amplitude(1:ewald%num_recip_vectors))
         allocate(ewald%recip_amplitude_old(1:ewald%num_recip_vectors))
+        allocate(ewald%form_factor(ewald%num_recip_vectors))    ! Note, there is no need for such as large vector
 
         ! Allocate complex arrays for wave vector components
         allocate(ewald%phase_factor_x(1:nb%type_residue, 0:NB_MAX_MOLECULE, 1:nb%max_atom_in_residue, -ewald%kmax(1):ewald%kmax(1)))

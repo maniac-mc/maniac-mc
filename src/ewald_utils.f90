@@ -77,6 +77,8 @@ contains
                     !ewald%recip_amplitude(count) = computeRecipAmplitude(kx_idx, ky_idx, kz_idx)
                     ! DOES NOT WORK, FIX
 
+                    ! Precompute form factor for current kx index: 1 for zero, 2 otherwise
+                    ewald%form_factor(count) = FormFactor(kx_idx)
                 end do
             end do
         end do
@@ -200,18 +202,30 @@ contains
     !   for all k-indices, including negative k-values. These factors are
     !   reused in the reciprocal-space energy computation to avoid recalculating
     !   trigonometric functions repeatedly.
+    !
+    ! For each k index (including negative k), we store the complex
+    ! exponential. Exploiting the property:
+    !    exp(-i * k * θ) = conjg(exp(i * k * θ))
+    ! avoids redundant computations for negative k values.
     !--------------------------------------------------------------------
     pure subroutine ComputePhaseFactors1D(phase_factor_axis, phase_component, kmax)
 
-        complex(8), intent(inout) :: phase_factor_axis(-kmax:kmax)
-        real(real64), intent(in) :: phase_component
-        integer, intent(in) :: kmax
-        integer :: k
+        ! Input arguments
+        complex(8), intent(inout) :: phase_factor_axis(-kmax:kmax)  ! Array of complex phase factors for all k indices along one axis
+        real(real64), intent(in) :: phase_component                  ! Phase angle for this atom along the current axis
+        integer, intent(in) :: kmax                                  ! Maximum k-index in the positive direction
+        ! Local arguments
+        integer :: k                                                 ! Loop index over k-values
+        complex(real64) :: phase_exp                                        ! Temporary complex exponential for current k
 
         do k = 0, kmax
-            phase_factor_axis(k) = cmplx(dcos(k*phase_component), dsin(k*phase_component), KIND=8)
+            ! Compute complex exponential for positive k
+            phase_exp = cmplx(dcos(k*phase_component), dsin(k*phase_component), kind=real64)
+            phase_factor_axis(k) = phase_exp
+
+            ! Exploit conjugate symmetry for negative k values
             if (k /= 0) then
-                phase_factor_axis(-k) = cmplx(dcos(-k*phase_component), dsin(-k*phase_component), KIND=8)
+                phase_factor_axis(-k) = conjg(phase_exp)
             end if
         end do
 
@@ -273,6 +287,7 @@ contains
         real(real64) :: form_factor      ! Factor to account for symmetry (k vs -k)
         complex(8) :: recip_amplitude    ! Structure factor for the current k-vector
         real(real64) :: recip_constant   ! Precomputed Ewald reciprocal-space weight
+        real(real64) :: amplitude_sq     ! Squared modulus of the structure factor amplitude
 
         ! Initialize
         u_recipCoulomb = zero
@@ -280,8 +295,8 @@ contains
         ! Loop over all precomputed reciprocal lattice vectors
         do idx = 1, ewald%num_kvectors
 
-            ! Compute form factor for current kx index: 1 for zero, 2 otherwise
-            form_factor =  FormFactor(ewald%kvectors(idx)%kx)
+            ! Use pre-computed form factor
+            form_factor = ewald%form_factor(idx)
 
             ! DOES NOT WORK, FIX
             ! recip_amplitude = ewald%recip_amplitude(idx)
@@ -293,11 +308,14 @@ contains
             ! Retrieve the precomputed reciprocal-space weight
             recip_constant = ewald%recip_constants(idx)
 
+            ! Compute squared modulus of the structure factor amplitude
+            amplitude_sq = amplitude_squared(ewald%recip_amplitude(idx))
+
             ! Accumulate reciprocal-space energy:
             ! form_factor * reciprocal constant * |amplitude|^2
             ! E_k = form_factor * recip_constant * |recip_amplitude|^2
-            u_recipCoulomb = u_recipCoulomb + form_factor * recip_constant * &
-                real(recip_amplitude * conjg(recip_amplitude), kind=8)
+            u_recipCoulomb = u_recipCoulomb + form_factor * recip_constant * amplitude_sq
+
         end do
 
         ! Convert accumulated energy to correct units (eV per molecule)
@@ -341,19 +359,30 @@ contains
         end do
     end function ComputeRecipAmplitude
 
-    ! Saves the current Fourier components for a given molecule.
+    !--------------------------------------------------------------------
+    ! SaveSingleMolFourierTerms
+    !
+    ! Saves the current phase factors and reciprocal amplitudes for a
+    ! given molecule (or residue). This allows rollback of the Fourier
+    ! state if a Monte Carlo or MD move is later rejected.
+    !
+    ! Steps:
+    !   1. Save phase factors (IKX, IKY, IKZ) for each atom in the residue.
+    !      - Handles both positive and negative indices for ky and kz.
+    !   2. Save reciprocal amplitudes A(k) for all valid k-vectors
+    !      into the backup array.
+    !--------------------------------------------------------------------
     subroutine SaveSingleMolFourierTerms(residue_type, molecule_index)
 
         implicit none
 
         ! Input arguments
-        integer, intent(in) :: residue_type
-        integer, intent(in) :: molecule_index
+        integer, intent(in) :: residue_type    ! Residue type identifier
+        integer, intent(in) :: molecule_index  ! Index of the molecule to save
         ! Local variables
-        integer :: atom_index_1
-        integer :: kx_idx, ky_idx, kz_idx
-        integer :: number_of_kpoints ! Index counter for Fourier components (reciprocal space)
-        real(real64) :: k_squared
+        integer :: atom_index_1                ! Atom index within the residue
+        integer :: kx_idx, ky_idx, kz_idx      ! Reciprocal vector indices
+        integer :: idx                         ! Index over precomputed k-vectors
 
         do atom_index_1 = 1, nb%atom_in_residue(residue_type)
 
@@ -384,24 +413,12 @@ contains
             end do
         end do
 
-        ! Save recip_amplitude_old from recip_amplitude
-        number_of_kpoints = 0
-        do kx_idx = 0, ewald%kmax(1)
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
-
-                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
-
-                    ! Compute normalized squared magnitude of k-vector
-                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
-
-                    ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (.not. IsValidKVector(k_squared)) cycle
-
-                    number_of_kpoints = number_of_kpoints + 1
-                    ewald%recip_amplitude_old(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints)
-                end do
-            end do
+        !------------------------------------------------------
+        ! Step 2: Save reciprocal amplitudes A(k)
+        !         Loop directly over precomputed valid k-vectors
+        !------------------------------------------------------
+        do idx = 1, ewald%num_kvectors
+            ewald%recip_amplitude_old(idx) = ewald%recip_amplitude(idx)
         end do
 
     end subroutine SaveSingleMolFourierTerms
@@ -447,8 +464,8 @@ contains
         ! Loop over all precomputed reciprocal lattice vectors
         do idx = 1, ewald%num_kvectors
 
-            ! Compute form factor for current kx index: 1 for zero, 2 otherwise
-            form_factor =  FormFactor(ewald%kvectors(idx)%kx)
+            ! Use pre-computed form factor
+            form_factor = ewald%form_factor(idx)
 
             ! Current k-vector indices
             kx_idx = ewald%kvectors(idx)%kx
@@ -473,7 +490,7 @@ contains
             ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + sum(charges * (phase_new - phase_old))
 
             ! Compute squared modulus of the structure factor amplitude
-            amplitude_sq = real(ewald%recip_amplitude(idx) * conjg(ewald%recip_amplitude(idx)), kind=8)
+            amplitude_sq = amplitude_squared(ewald%recip_amplitude(idx))
 
             !----------------------------------------------
             ! Accumulate reciprocal-space energy:
@@ -546,8 +563,8 @@ contains
         end do
 
         !------------------------------------------------------
-        ! Step 2: Restore reciprocal amplitudes A(k) from backup
-        !         Loop directly over precomputed valid k-vectors
+        ! Restore reciprocal amplitudes A(k) from backup
+        ! Loop directly over precomputed valid k-vectors
         !------------------------------------------------------
         do idx = 1, ewald%num_kvectors
             ewald%recip_amplitude(idx) = ewald%recip_amplitude_old(idx)
@@ -633,17 +650,23 @@ contains
 
         ! Reject near-zero k-vectors (avoid singularity at k=0)
         ! and any vectors outside the normalized unit sphere.
-        valid = (abs(k_squared) >= zero) .and. (k_squared <= one)
+        valid = (abs(k_squared) >= error) .and. (k_squared <= one)
         
     end function IsValidKVector
-    
+        
+    !--------------------------------------------------------------------
+    ! Returns squared modulus of a complex number:
+    !   |z|^2 = Re(z)^2 + Im(z)^2
+    !--------------------------------------------------------------------
+    pure function amplitude_squared(z) result(val)
+
+        ! Input argument
+        complex(real64), intent(in) :: z
+        ! Output rgument
+        real(real64) :: val
+
+        val = real(z*conjg(z), kind=real64)
+
+    end function amplitude_squared
+
 end module ewald_utils
-
-
-
-
-
-
-
-
-

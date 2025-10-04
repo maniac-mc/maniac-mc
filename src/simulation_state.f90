@@ -179,6 +179,7 @@ module simulation_state
         complex(8), dimension(:), allocatable :: recip_amplitude_old ! Old fourier coefficients of charge density or potential
         type(kvector_type), allocatable :: kvectors(:) ! Precomputed reciprocal vectors
         integer :: num_kvectors                 ! Number of precomputed vectors
+        real(real64), dimension(:), allocatable :: form_factor ! Factor to account for symmetry (k vs -k)
     end type type_ewald
     type(type_ewald) :: ewald
 
