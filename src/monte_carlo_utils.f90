@@ -3,88 +3,143 @@ module monte_carlo_utils
     use simulation_state
     use random_utils
     use constants
+    use ewald_utils
     use output_utils
+    use energy_utils
     use, intrinsic :: iso_fortran_env, only: real64
 
     implicit none
 
 contains
 
-    subroutine ApplyRandomRotation(residue_type, molecule_index, full_rotation)
+    !========================================================
+    ! Subroutine: ApplyRandomRotation
+    !
+    ! Rotates all atoms of a residue around a randomly chosen
+    ! axis (X, Y, or Z) by a random angle. Angle can be a 
+    ! small perturbation or a full 0-2π rotation.
+    !
+    ! Inputs:
+    !   res_type - integer, index of the residue type
+    !   mol_index - integer, index of the molecule
+    !   full_rotation - optional logical, if .true. use full rotation
+    !========================================================
+    subroutine ApplyRandomRotation(res_type, mol_index, full_rotation)
 
         implicit none
 
         ! Input arguments
-        integer, intent(in) :: residue_type, molecule_index
-        logical, intent(in), optional :: full_rotation
-
+        integer, intent(in) :: res_type       ! Index of the residue type
+        integer, intent(in) :: mol_index     ! Index of the molecule
+        logical, intent(in), optional :: full_rotation ! Flag for full or small-step rotation
         ! Local variables
-        integer :: rotation_axis
-        logical :: use_full_rotation
-        real(real64) :: rotation_matrix(3, 3)
-        real(real64) :: theta
-        real(real64) :: cos_theta, sin_theta
-        character(len=32) :: axis_str
+        integer :: rotation_axis                  ! Chosen rotation axis (1=X, 2=Y, 3=Z)
+        integer :: n_atoms                        ! Number of atoms in residue
+        logical :: use_full_rotation              ! Actual value of full_rotation (defaults to .false.)
+        real(real64) :: rotation_matrix(3,3)      ! 3x3 rotation matrix for the rotation
+        real(real64) :: theta                     ! Rotation angle in radians
 
         ! Handle optional argument: default = .false.
         use_full_rotation = .false.
-        if (PRESENT(full_rotation)) use_full_rotation = full_rotation
+        if (present(full_rotation)) use_full_rotation = full_rotation
 
         ! Exit if single-atom residue (nothing to rotate)
-        if (nb%atom_in_residue(residue_type) == 1) return
+        n_atoms = nb%atom_in_residue(res_type)
+        if (n_atoms == 1) return
 
-        if (.not. use_full_rotation) then
-            ! For small-step mode, make sure rotation_step_angle is reasonable
-            if (input%rotation_step_angle <= 0.0_real64 .OR. input%rotation_step_angle > 2.0_real64 * PI) then
-                stop 'Invalid rotation_step_angle in ApplyRandomRotation'
-            end if
-            ! Use small rotation
-            theta = (rand_uniform() - 0.5_real64) * input%rotation_step_angle
-        else ! Use large roration
-            theta = rand_uniform() * 2.0_real64 * PI
-        end if
+        ! Choose rotation angle
+        theta = ChooseRotationAngle(use_full_rotation)
 
         ! Choose random axis (1=X, 2=Y, 3=Z)
-        rotation_axis = INT(rand_uniform() * 3.0_real64) + 1 ! Random integer in [1,3]
-        
+        rotation_axis = int(rand_uniform() * three) + 1 ! Random integer in [1,3]
+
+        ! Set rotation matrix based on axis
+        rotation_matrix = RotationMatrix(rotation_axis, theta)
+
+        ! Apply rotation to all atoms in the residue
+        primary%site_offset(:, res_type, mol_index, 1:n_atoms) = &
+            matmul(rotation_matrix, primary%site_offset(:, res_type, mol_index, 1:n_atoms))
+
+    end subroutine ApplyRandomRotation
+
+    !========================================================
+    ! Function: RotationMatrix
+    !
+    ! Returns a 3x3 rotation matrix for a given axis (X=1, Y=2, Z=3)
+    ! and rotation angle theta (radians).
+    !
+    ! Inputs:
+    !   axis  - integer, rotation axis (1=X, 2=Y, 3=Z)
+    !   theta - real(real64), rotation angle in radians
+    !
+    ! Output:
+    !   rotation_matrix - real(real64) 3x3 rotation matrix
+    !========================================================
+    function RotationMatrix(axis, theta) result(rotation_matrix)
+
+        implicit none
+            
+        integer, intent(in) :: axis               ! Rotation axis (1=X, 2=Y, 3=Z)
+        real(real64), intent(in) :: theta         ! Rotation angle in radians
+        real(real64) :: rotation_matrix(3,3)      ! 3x3 rotation matrix to be returned
+        real(real64) :: cos_theta, sin_theta      ! Cosine and sine of theta
+
         ! Compute trigonometric values
         cos_theta = cos(theta)
         sin_theta = sin(theta)
 
-        ! Initialize rotation matrix (identity matrix)
-        rotation_matrix = 0.0_real64
-        rotation_matrix(1, 1) = 1.0_real64
-        rotation_matrix(2, 2) = 1.0_real64
-        rotation_matrix(3, 3) = 1.0_real64
+        ! Initialize as identity
+        rotation_matrix = zero
+        rotation_matrix(1,1) = one
+        rotation_matrix(2,2) = one
+        rotation_matrix(3,3) = one
 
-        ! Set rotation matrix based on axis
-        select case (rotation_axis)
-        case (1)  ! X-axis
-            rotation_matrix(2, 2) = cos_theta
-            rotation_matrix(2, 3) = -sin_theta
-            rotation_matrix(3, 2) = sin_theta
-            rotation_matrix(3, 3) = cos_theta
-        case (2)  ! Y-axis
-            rotation_matrix(1, 1) = cos_theta
-            rotation_matrix(1, 3) = sin_theta
-            rotation_matrix(3, 1) = -sin_theta
-            rotation_matrix(3, 3) = cos_theta
-        case (3)  ! Z-axis
-            rotation_matrix(1, 1) = cos_theta
-            rotation_matrix(1, 2) = -sin_theta
-            rotation_matrix(2, 1) = sin_theta
-            rotation_matrix(2, 2) = cos_theta
-        case default
-            write(axis_str, '(I0)') rotation_axis   ! convert to string if integer
-            call AbortRun("Invalid rotation_axis: " // trim(axis_str))
+        ! Fill rotation matrix based on axis
+        select case(axis)
+        case(1) ! X-axis
+            rotation_matrix(2,2) = cos_theta
+            rotation_matrix(2,3) = -sin_theta
+            rotation_matrix(3,2) = sin_theta
+            rotation_matrix(3,3) = cos_theta
+        case(2) ! Y-axis
+            rotation_matrix(1,1) = cos_theta
+            rotation_matrix(1,3) = sin_theta
+            rotation_matrix(3,1) = -sin_theta
+            rotation_matrix(3,3) = cos_theta
+        case(3) ! Z-axis
+            rotation_matrix(1,1) = cos_theta
+            rotation_matrix(1,2) = -sin_theta
+            rotation_matrix(2,1) = sin_theta
+            rotation_matrix(2,2) = cos_theta
         end select
 
-        ! Apply rotation to all atoms
-        primary%site_offset(:, residue_type, molecule_index, 1:nb%atom_in_residue(residue_type)) = &
-            matmul(rotation_matrix, &
-                   primary%site_offset(:, residue_type, molecule_index, 1:nb%atom_in_residue(residue_type)))
+    end function RotationMatrix
 
-    end subroutine ApplyRandomRotation
+    ! Returns a random rotation angle (radians); small-step if use_full_rotation=.false., full [0,2π] if .true.
+    function ChooseRotationAngle(use_full_rotation) result(theta)
+
+        implicit none
+
+        ! Input variables
+        logical, intent(in) :: use_full_rotation
+        ! Output variables
+        real(real64) :: theta
+
+        if (.not. use_full_rotation) then
+
+            ! For small-step mode, make sure rotation_step_angle is reasonable
+            if (input%rotation_step_angle <= zero .or. input%rotation_step_angle > TWOPI) then
+                call AbortRun('Invalid rotation_step_angle in ChooseRotationAngle')
+            end if
+
+            ! Use small rotation
+            theta = (rand_uniform() - half) * input%rotation_step_angle
+        else
+            ! Use large rotation
+            theta = rand_uniform() * TWOPI
+        end if
+
+    end function ChooseRotationAngle
 
     !> Adjusts the Monte Carlo translation and rotation step sizes dynamically
     !! This subroutine recalibrates the translational and rotational move steps
@@ -264,5 +319,177 @@ contains
 
     end function mc_acceptance_probability_swap
 
+    !---------------------------------------------------------------------------
+    ! Purpose:
+    !   Compute the updated energy of a single molecule after a trial move 
+    !   (translation or rotation) for use in the Monte Carlo acceptance test.
+    !---------------------------------------------------------------------------
+    subroutine ComputeNewEnergy(residue_type, molecule_index, new)
+
+        implicit none
+
+        integer, intent(in) :: residue_type         ! Residue type to be moved
+        integer, intent(in) :: molecule_index       ! Index of the molecule to move
+        type(energy_state), intent(out) :: new      ! New energy states
+
+        ! Recompute Fourier terms for the moved molecule
+        call SingleMolFourierTerms(residue_type, molecule_index)
+
+        ! Compute new energies
+        call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, new%recip_coulomb)
+        call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, new%non_coulomb, new%coulomb)
+
+        ! Total energy of the molecule
+        new%total = new%non_coulomb + new%coulomb + new%recip_coulomb
+
+    end subroutine ComputeNewEnergy
+
+    !---------------------------------------------------------------------------
+    ! Purpose:
+    !   Compute the current (pre-move) energy of a single molecule for use
+    !   in the Monte Carlo Metropolis criterion.
+    !
+    ! Inputs:
+    !   residue_type   - Integer: Type of residue/molecule
+    !   molecule_index - Integer: Index of the molecule in the system
+    !
+    ! Outputs:
+    !   old            - Type(energy_state): Energy components before trial move
+    !
+    ! Notes:
+    !   - Computes reciprocal-space Coulomb energy using Ewald summation.
+    !   - Computes pairwise interaction energies (van der Waals + real-space Coulomb).
+    !   - Translation or rotation does not affect self-energy or intra-molecular Coulomb terms.
+    !---------------------------------------------------------------------------
+    subroutine ComputeOldEnergy(residue_type, molecule_index, old)
+
+        implicit none
+
+        integer, intent(in) :: residue_type         ! Residue type to be moved
+        integer, intent(in) :: molecule_index       ! Index of the molecule to move
+        type(energy_state), intent(out) :: old      ! Old energy states
+
+        ! Compute current energy (cf e_old)
+        call ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, old%recip_coulomb)
+        call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
+
+        ! Note: Translation does not affect ewald_self or intra_coulomb
+        old%total = old%non_coulomb + old%coulomb + old%recip_coulomb
+
+    end subroutine ComputeOldEnergy
+
+    !---------------------------------------------------------------------------
+    ! Purpose:
+    !   Update the global system energy and Monte Carlo counters after 
+    !   accepting a trial move (translation or rotation) of a molecule.
+    !
+    ! Inputs:
+    !   old         - Type(energy_state): Energy of the molecule before the move
+    !   new         - Type(energy_state): Energy of the molecule after the move
+    !
+    ! Input/Output:
+    !   counter_var - Integer: Monte Carlo counter for successful moves
+    !                 (e.g., translations or rotations), incremented if move accepted
+    !---------------------------------------------------------------------------
+    subroutine AcceptMove(old, new, counter_var)
+        
+        ! Input arguments
+        type(energy_state), intent(in) :: old, new
+        integer, intent(inout) :: counter_var
+        
+        energy%recip_coulomb = energy%recip_coulomb + new%recip_coulomb - old%recip_coulomb
+        energy%non_coulomb = energy%non_coulomb + new%non_coulomb - old%non_coulomb
+        energy%coulomb = energy%coulomb + new%coulomb - old%coulomb
+        energy%total = energy%total + new%total - old%total
+        counter_var = counter_var + 1
+    
+    end subroutine
+
+    !---------------------------------------------------------------------------
+    ! Subroutine: SaveMoleculeState
+    !
+    ! Purpose:
+    !   Save the current state of a molecule for a Monte Carlo move.
+    !   - For translation: saves center-of-mass (COM)
+    !   - For rotation: saves site offsets
+    !   - Also saves Fourier terms for later restoration if the move is rejected
+    !
+    ! Inputs:
+    !   residue_type   - Integer: Residue type of the molecule
+    !   molecule_index - Integer: Index of the molecule
+    !
+    ! Outputs:
+    !   com_old         - Real(3) array: center-of-mass (for translation)
+    !   site_offset_old - Real(3, natoms) array: site offsets (for rotation)
+    ! Notes:
+    !   - Only one of com_old or site_offset_old is allocated by the caller
+    !   - Fourier terms are always saved
+    !---------------------------------------------------------------------------
+    subroutine SaveMoleculeState(res_type, mol_index, com_old, site_offset_old)
+
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: res_type         ! Residue type of the molecule
+        integer, intent(in) :: mol_index        ! Index of the molecule
+        real(real64), intent(out), optional :: com_old(3) ! Center-of-mass before move (for translation)
+        real(real64), intent(out), optional :: site_offset_old(:, :) ! Site offsets before move (for rotation)
+        ! Local variable
+        integer :: natoms
+
+        ! Save Fourier terms
+        call SaveSingleMolFourierTerms(res_type, mol_index)
+
+        ! Save center-of-mass if requested (translation)
+        if (present(com_old)) then
+            com_old(:) = primary%mol_com(:, res_type, mol_index)
+        end if
+
+        ! Save site offsets if requested (rotation)
+        if (present(site_offset_old)) then
+            natoms = nb%atom_in_residue(res_type)
+            site_offset_old(:, 1:natoms) = primary%site_offset(:, res_type, mol_index, 1:natoms)
+        end if
+
+    end subroutine SaveMoleculeState
+
+    !---------------------------------------------------------------------------
+    ! Subroutine: RejectMoleculeMove
+    !
+    ! Purpose:
+    !   Restore a molecule's previous state (COM or site offsets) and Fourier terms
+    !   if a Monte Carlo move is rejected.
+    !
+    ! Inputs:
+    !   res_type - Residue type of the molecule
+    !   mol_index - Index of the molecule
+    !   com_old - Previous COM (for translation, optional)
+    !   site_offset_old - Previous site offsets (for rotation, optional)
+    !---------------------------------------------------------------------------
+    subroutine RejectMoleculeMove(res_type, mol_index, com_old, site_offset_old)
+        implicit none
+
+        integer, intent(in) :: res_type       ! Residue type of the molecule
+        integer, intent(in) :: mol_index      ! Index of the molecule
+        real(real64), intent(in), optional :: com_old(3) ! Previous COM (translation)
+        real(real64), intent(in), optional :: site_offset_old(:, :) ! Previous site offsets (rotation)
+        ! Local variable
+        integer :: natoms
+
+        ! Restore COM if present (translation)
+        if (present(com_old)) then
+            primary%mol_com(:, res_type, mol_index) = com_old(:)
+        end if
+
+        ! Restore site offsets if present (rotation)
+        if (present(site_offset_old)) then
+            natoms = nb%atom_in_residue(res_type)
+            primary%site_offset(:, res_type, mol_index, 1:natoms) = &
+                site_offset_old(:, 1:natoms)
+        end if
+
+        ! Restore Fourier states
+        call RestoreFourierState_singlemol(res_type, mol_index)
+    end subroutine RejectMoleculeMove
 
 end module monte_carlo_utils
