@@ -163,23 +163,23 @@ module simulation_state
 
     ! For Ewald calculation
     type :: type_ewald
-        real(real64), dimension(:), allocatable :: recip_constants ! Constants for reciprocal space summations
+        integer :: num_kvectors                 ! Number of precomputed vectors
+        integer :: kmax(3)                      ! Maximum index for reciprocal lattice vector x y z component
+        integer :: num_recip_vectors            ! Number of reciprocal lattice vectors considered (possibly)
         real(real64) :: alpha                   ! Ewald summation alpha parameter (screening parameter)
         real(real64) :: fourier_precision       ! Estimated precision required for reciprocal (Fourier) space summation
         real(real64) :: screening_factor        ! Intermediate tolerance factor for real-space screening width calculation
-        integer :: kmax(3)                      ! Maximum index for reciprocal lattice vector x y z component
-        integer :: num_recip_vectors            ! Number of reciprocal lattice vectors considered (possibly)
-        complex(8), dimension(:, :, :, :), allocatable :: phase_factor_x ! Complex exponentials for reciprocal space (x-component)
-        complex(8), dimension(:, :, :, :), allocatable :: phase_factor_y ! Complex exponentials for reciprocal space (y-component)
-        complex(8), dimension(:, :, :, :), allocatable :: phase_factor_z ! Complex exponentials for reciprocal space (z-component)
-        complex(8), dimension(:, :), allocatable :: phase_factor_x_old ! Old Fourier terms along X
-        complex(8), dimension(:, :), allocatable :: phase_factor_y_old ! Old Fourier terms along Y
-        complex(8), dimension(:, :), allocatable :: phase_factor_z_old ! Old Fourier terms along Z
-        complex(8), dimension(:), allocatable :: recip_amplitude ! Fourier coefficients of charge density or potential
-        complex(8), dimension(:), allocatable :: recip_amplitude_old ! Old fourier coefficients of charge density or potential
-        type(kvector_type), allocatable :: kvectors(:) ! Precomputed reciprocal vectors
-        integer :: num_kvectors                 ! Number of precomputed vectors
+        real(real64), dimension(:), allocatable :: recip_constants ! Constants for reciprocal space summations
+        complex(real64), dimension(:, :, :, :), allocatable :: phase_factor_x ! Complex exponentials for reciprocal space (x-component)
+        complex(real64), dimension(:, :, :, :), allocatable :: phase_factor_y ! Complex exponentials for reciprocal space (y-component)
+        complex(real64), dimension(:, :, :, :), allocatable :: phase_factor_z ! Complex exponentials for reciprocal space (z-component)
+        complex(real64), dimension(:, :), allocatable :: phase_factor_x_old ! Old Fourier terms along X
+        complex(real64), dimension(:, :), allocatable :: phase_factor_y_old ! Old Fourier terms along Y
+        complex(real64), dimension(:, :), allocatable :: phase_factor_z_old ! Old Fourier terms along Z
+        complex(real64), dimension(:), allocatable :: recip_amplitude ! Fourier coefficients of charge density or potential
+        complex(real64), dimension(:), allocatable :: recip_amplitude_old ! Old fourier coefficients of charge density or potential
         real(real64), dimension(:), allocatable :: form_factor ! Factor to account for symmetry (k vs -k)
+        type(kvector_type), allocatable :: kvectors(:) ! Precomputed reciprocal vectors
     end type type_ewald
     type(type_ewald) :: ewald
 

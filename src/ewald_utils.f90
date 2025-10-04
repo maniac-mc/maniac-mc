@@ -73,10 +73,6 @@ contains
                     ewald%kvectors(count)%k_squared = k_squared
                     ewald%kvectors(count)%k_squared_mag = k_squared_mag
 
-                    ! Compute the complex reciprocal amplitude (structure factor) for this k-vector
-                    !ewald%recip_amplitude(count) = computeRecipAmplitude(kx_idx, ky_idx, kz_idx)
-                    ! DOES NOT WORK, FIX
-
                     ! Precompute form factor for current kx index: 1 for zero, 2 otherwise
                     ewald%form_factor(count) = FormFactor(kx_idx)
                 end do
@@ -131,7 +127,7 @@ contains
         real(real64), dimension(3) :: atom      ! Atom coordinates in real space
         real(real64), dimension(3) :: phase     ! Phase factors for Fourier terms
         integer :: kmax_x, kmax_y, kmax_z       ! max k indices for each direction
-        complex(8), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
+        complex(real64), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
 
         ! Determine kmax for each direction
         kmax_x = ewald%kmax(1)
@@ -211,7 +207,7 @@ contains
     pure subroutine ComputePhaseFactors1D(phase_factor_axis, phase_component, kmax)
 
         ! Input arguments
-        complex(8), intent(inout) :: phase_factor_axis(-kmax:kmax)  ! Array of complex phase factors for all k indices along one axis
+        complex(real64), intent(inout) :: phase_factor_axis(-kmax:kmax)  ! Array of complex phase factors for all k indices along one axis
         real(real64), intent(in) :: phase_component                  ! Phase angle for this atom along the current axis
         integer, intent(in) :: kmax                                  ! Maximum k-index in the positive direction
         ! Local arguments
@@ -285,7 +281,7 @@ contains
         ! Internal variables
         integer :: idx                   ! Index over precomputed reciprocal vectors
         real(real64) :: form_factor      ! Factor to account for symmetry (k vs -k)
-        complex(8) :: recip_amplitude    ! Structure factor for the current k-vector
+        complex(real64) :: recip_amplitude    ! Structure factor for the current k-vector
         real(real64) :: recip_constant   ! Precomputed Ewald reciprocal-space weight
         real(real64) :: amplitude_sq     ! Squared modulus of the structure factor amplitude
 
@@ -455,12 +451,20 @@ contains
         real(real64) :: amplitude_sq           ! Squared modulus of the structure factor amplitude
         real(real64) :: form_factor            ! Symmetry factor: 1 if kx=0, 2 otherwise
         real(real64), dimension(:), allocatable :: charges   ! Partial charges of atoms
-        complex(8), dimension(:), allocatable :: phase_new   ! Updated phase factor product
-        complex(8), dimension(:), allocatable :: phase_old   ! Previous phase factor product
+        complex(real64), dimension(:), allocatable :: phase_new   ! Updated phase factor product
+        complex(real64), dimension(:), allocatable :: phase_old   ! Previous phase factor product
 
         ! Initialize energy accumulator
         u_recipCoulomb_new = zero
 
+        ! Atom charges in this residue
+        natoms = nb%atom_in_residue(residue_type)
+        allocate(charges(natoms))
+        charges = primary%atom_charges(residue_type, 1:natoms)
+
+        ! Allocate phase_new and phase_old
+        allocate(phase_new(natoms), phase_old(natoms))
+        
         ! Loop over all precomputed reciprocal lattice vectors
         do idx = 1, ewald%num_kvectors
 
@@ -471,10 +475,6 @@ contains
             kx_idx = ewald%kvectors(idx)%kx
             ky_idx = ewald%kvectors(idx)%ky
             kz_idx = ewald%kvectors(idx)%kz
-
-            ! Atom charges in this residue
-            natoms = nb%atom_in_residue(residue_type)
-            charges = primary%atom_charges(residue_type, 1:natoms)
 
             ! Compute total phase factors (new vs. old configuration)
             phase_new = ewald%phase_factor_x(residue_type, molecule_index, 1:natoms, kx_idx) * &
