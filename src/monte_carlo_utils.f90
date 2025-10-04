@@ -6,6 +6,7 @@ module monte_carlo_utils
     use ewald_utils
     use output_utils
     use energy_utils
+    use helper_utils
     use, intrinsic :: iso_fortran_env, only: real64
 
     implicit none
@@ -61,59 +62,6 @@ contains
             matmul(rotation_matrix, primary%site_offset(:, res_type, mol_index, 1:n_atoms))
 
     end subroutine ApplyRandomRotation
-
-    !========================================================
-    ! Function: RotationMatrix
-    !
-    ! Returns a 3x3 rotation matrix for a given axis (X=1, Y=2, Z=3)
-    ! and rotation angle theta (radians).
-    !
-    ! Inputs:
-    !   axis  - integer, rotation axis (1=X, 2=Y, 3=Z)
-    !   theta - real(real64), rotation angle in radians
-    !
-    ! Output:
-    !   rotation_matrix - real(real64) 3x3 rotation matrix
-    !========================================================
-    function RotationMatrix(axis, theta) result(rotation_matrix)
-
-        implicit none
-            
-        integer, intent(in) :: axis               ! Rotation axis (1=X, 2=Y, 3=Z)
-        real(real64), intent(in) :: theta         ! Rotation angle in radians
-        real(real64) :: rotation_matrix(3,3)      ! 3x3 rotation matrix to be returned
-        real(real64) :: cos_theta, sin_theta      ! Cosine and sine of theta
-
-        ! Compute trigonometric values
-        cos_theta = cos(theta)
-        sin_theta = sin(theta)
-
-        ! Initialize as identity
-        rotation_matrix = zero
-        rotation_matrix(1,1) = one
-        rotation_matrix(2,2) = one
-        rotation_matrix(3,3) = one
-
-        ! Fill rotation matrix based on axis
-        select case(axis)
-        case(1) ! X-axis
-            rotation_matrix(2,2) = cos_theta
-            rotation_matrix(2,3) = -sin_theta
-            rotation_matrix(3,2) = sin_theta
-            rotation_matrix(3,3) = cos_theta
-        case(2) ! Y-axis
-            rotation_matrix(1,1) = cos_theta
-            rotation_matrix(1,3) = sin_theta
-            rotation_matrix(3,1) = -sin_theta
-            rotation_matrix(3,3) = cos_theta
-        case(3) ! Z-axis
-            rotation_matrix(1,1) = cos_theta
-            rotation_matrix(1,2) = -sin_theta
-            rotation_matrix(2,1) = sin_theta
-            rotation_matrix(2,2) = cos_theta
-        end select
-
-    end function RotationMatrix
 
     ! Returns a random rotation angle (radians); small-step if use_full_rotation=.false., full [0,2π] if .true.
     function ChooseRotationAngle(use_full_rotation) result(theta)
@@ -240,7 +188,6 @@ contains
         integer, intent(in) :: move_type        ! MC move type: TYPE_CREATION, TYPE_DELETION, TYPE_TRANSLATION, TYPE_ROTATION
         integer, intent(in) :: residue_type     ! Index of the residue type
         real(real64) :: probability             ! Calculated acceptance probability (0 <= P <= 1)
-        real(real64) :: one = 1.0_real64        ! Constant 1.0, used for min() comparison
         real(real64) :: N                       ! Number of residues of this type (local copy)
         real(real64) :: V                       ! Simulation box volume (local copy)
         real(real64) :: phi                     ! Fugacity of the residue type (local copy)
@@ -278,7 +225,6 @@ contains
 
     function mc_acceptance_probability_swap(old, new, type_old, type_new) result(probability)
 
-        use, intrinsic :: iso_fortran_env, only: real64
         implicit none
 
         ! Arguments
