@@ -89,7 +89,7 @@ contains
         write(formatted_msg, '(A, I5, A, I5, A, I5)') 'Max Fourier index (kmax(1), kmax(2), kmax(3)): ', &
             ewald%kmax(1), ', ', ewald%kmax(2), ', ', ewald%kmax(3)
         call LogMessage(formatted_msg)
-        write(formatted_msg, '(A, I10)') 'Total reciprocal lattice vectors: ', ewald%num_recip_vectors
+        write(formatted_msg, '(A, I10)') 'Total reciprocal lattice vectors: ', ewald%num_kvectors
         call LogMessage(formatted_msg)
 
     end subroutine LogEwaldParameters
@@ -183,9 +183,32 @@ contains
     !             directions, and the total number of reciprocal lattice vectors.
     !--------------------------------------------------------------------
     subroutine ComputeFourierIndices()
+
+        implicit none
+
+        integer :: kx_idx, ky_idx, kz_idx   ! Loop indices for each k-component
+        integer :: count                    ! Counter for valid k-vectors
+        real(real64) :: k_squared           ! Normalized squared magnitude of k-vector
+
         ! Compute maximum Fourier indices in X, Y, Z directions
         ewald%kmax = nint(0.25_real64 + primary%metrics(1:3) * ewald%alpha * ewald%fourier_precision / PI)        
-        ewald%num_recip_vectors = (ewald%kmax(1) + 1) * (2 * ewald%kmax(2) + 1) * (2 * ewald%kmax(3) + 1)
+        
+        ! Count the total number of valid reciprocal vectors
+        count = 0
+        do kx_idx = 0, ewald%kmax(1)
+            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
+                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
+                    if (IsValidKVector(k_squared)) then
+                        count = count + 1
+                    end if
+                end do
+            end do
+        end do
+
+        ewald%num_kvectors = count
+    
     end subroutine ComputeFourierIndices
 
     !-------------------------------------------------------------------
@@ -196,11 +219,11 @@ contains
 
         implicit none
 
-        ! Allocate real arrays for coefficients (dimension ewald%num_recip_vectors)
-        allocate(ewald%recip_constants(1:ewald%num_recip_vectors))
-        allocate(ewald%recip_amplitude(1:ewald%num_recip_vectors))
-        allocate(ewald%recip_amplitude_old(1:ewald%num_recip_vectors))
-        allocate(ewald%form_factor(ewald%num_recip_vectors))    ! Note, there is no need for such as large vector
+        ! Allocate real arrays for coefficients (dimension ewald%num_kvectors)
+        allocate(ewald%recip_constants(1:ewald%num_kvectors))
+        allocate(ewald%recip_amplitude(1:ewald%num_kvectors))
+        allocate(ewald%recip_amplitude_old(1:ewald%num_kvectors))
+        allocate(ewald%form_factor(ewald%num_kvectors)) ! Note, there is no need for such as large vector
 
         ! Allocate complex arrays for wave vector components
         allocate(ewald%phase_factor_x(1:nb%type_residue, 0:NB_MAX_MOLECULE, 1:nb%max_atom_in_residue, -ewald%kmax(1):ewald%kmax(1)))
@@ -209,6 +232,9 @@ contains
         allocate(ewald%phase_factor_x_old(1:nb%max_atom_in_residue, -ewald%kmax(1):ewald%kmax(1)))
         allocate(ewald%phase_factor_y_old(1:nb%max_atom_in_residue, -ewald%kmax(2):ewald%kmax(2)))
         allocate(ewald%phase_factor_z_old(1:nb%max_atom_in_residue, -ewald%kmax(3):ewald%kmax(3)))
+
+        ! Allocate kvectors
+        allocate(ewald%kvectors(ewald%num_kvectors))
 
     end subroutine AllocateEwaldArray
 

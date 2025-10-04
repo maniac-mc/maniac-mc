@@ -165,7 +165,6 @@ module simulation_state
     type :: type_ewald
         integer :: num_kvectors                 ! Number of precomputed vectors
         integer :: kmax(3)                      ! Maximum index for reciprocal lattice vector x y z component
-        integer :: num_recip_vectors            ! Number of reciprocal lattice vectors considered (possibly)
         real(real64) :: alpha                   ! Ewald summation alpha parameter (screening parameter)
         real(real64) :: fourier_precision       ! Estimated precision required for reciprocal (Fourier) space summation
         real(real64) :: screening_factor        ! Intermediate tolerance factor for real-space screening width calculation

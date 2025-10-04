@@ -31,24 +31,6 @@ contains
         ! Store reciprocal lattice vectors as columns of a 3x3 matrix
         kvec_matrix = TWOPI * reshape(primary%reciprocal, shape(kvec_matrix))
 
-        ! Count the total number of valid reciprocal vectors
-        count = 0
-        do kx_idx = 0, ewald%kmax(1)
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
-                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
-                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
-                    if (IsValidKVector(k_squared)) then
-                        count = count + 1
-                    end if
-                end do
-            end do
-        end do
-
-        ! Allocate memory for the array of k-vectors
-        ewald%num_kvectors = count
-        allocate(ewald%kvectors(ewald%num_kvectors))
-
         ! Fill the array with the actual k-vectors
         count = 0
         do kx_idx = 0, ewald%kmax(1)
