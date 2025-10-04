@@ -152,6 +152,15 @@ module simulation_state
     end type type_coeff
     type(type_coeff) :: coeff
 
+    ! Type to store precomputed reciprocal vectors
+    type :: kvector_type
+        integer :: kx
+        integer :: ky
+        integer :: kz
+        real(real64) :: k_squared       ! Normalized k^2 (for validity)
+        real(real64) :: k_squared_mag   ! Cartesian squared magnitude (for W(k))
+    end type kvector_type
+
     ! For Ewald calculation
     type :: type_ewald
         real(real64), dimension(:), allocatable :: recip_constants ! Constants for reciprocal space summations
@@ -168,7 +177,8 @@ module simulation_state
         complex(8), dimension(:, :), allocatable :: phase_factor_z_old ! Old Fourier terms along Z
         complex(8), dimension(:), allocatable :: recip_amplitude ! Fourier coefficients of charge density or potential
         complex(8), dimension(:), allocatable :: recip_amplitude_old ! Old fourier coefficients of charge density or potential
-        ! complex(8), allocatable :: recip_factor(:, :, :, :) ! (residue, molecule, atom, k_index)
+        type(kvector_type), allocatable :: kvectors(:) ! Precomputed reciprocal vectors
+        integer :: num_kvectors                 ! Number of precomputed vectors
     end type type_ewald
     type(type_ewald) :: ewald
 

@@ -10,66 +10,102 @@ module ewald_utils
 
 contains
 
+    !-------------------------------------------------------------------
+    ! This subroutine precomputes all valid reciprocal lattice vectors
+    ! (kx, ky, kz) for the Ewald summation. It also precomputes the
+    ! normalized squared magnitude k^2 for each vector.
+    !
+    ! This eliminates the need for triple nested loops during the
+    ! reciprocal-space energy computation.
+    !-------------------------------------------------------------------
+    subroutine PrecomputeKVectors()
+
+        implicit none
+
+        integer :: kx_idx, ky_idx, kz_idx   ! Loop indices for each k-component
+        integer :: count                    ! Counter for valid k-vectors
+        real(real64) :: k_squared           ! Normalized squared magnitude of k-vector
+        real(real64) :: k_squared_mag       ! Squared magnitude of the k-vector
+        real(real64), dimension(3,3) :: kvec_matrix ! Columns are reciprocal lattice vectors b1, b2, b3
+
+        ! Store reciprocal lattice vectors as columns of a 3x3 matrix
+        kvec_matrix = TWOPI * reshape(primary%reciprocal, shape(kvec_matrix))
+
+        ! Count the total number of valid reciprocal vectors
+        count = 0
+        do kx_idx = 0, ewald%kmax(1)
+            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
+                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
+                    if (IsValidKVector(k_squared)) then
+                        count = count + 1
+                    end if
+                end do
+            end do
+        end do
+
+        ! Allocate memory for the array of k-vectors
+        ewald%num_kvectors = count
+        allocate(ewald%kvectors(ewald%num_kvectors))
+
+        ! Fill the array with the actual k-vectors
+        count = 0
+        do kx_idx = 0, ewald%kmax(1)
+            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
+                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+
+                    ! Compute normalized k^2 again
+                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
+
+                    ! Skip invalid k-vectors
+                    if (.not. IsValidKVector(k_squared)) cycle
+
+                    k_squared_mag = KVectorSquaredMag(kx_idx, ky_idx, kz_idx, kvec_matrix)
+
+                    ! Increment counter and store k-vector components
+                    count = count + 1
+                    ewald%kvectors(count)%kx = kx_idx
+                    ewald%kvectors(count)%ky = ky_idx
+                    ewald%kvectors(count)%kz = kz_idx
+                    ewald%kvectors(count)%k_squared = k_squared
+                    ewald%kvectors(count)%k_squared_mag = k_squared_mag
+                end do
+            end do
+        end do
+
+    end subroutine PrecomputeKVectors
+
     !------------------------------------------------------------------------------
     ! Precomputes the reciprocal-space weighting factors for the Ewald summation.
-    ! Uses a 3x3 matrix to store the reciprocal lattice vectors and computes the
-    ! magnitude of each k-vector efficiently. Only done once at the start of the simulation.
+    ! Loops over the precomputed reciprocal lattice vectors stored in ewald%kvectors
+    ! and calculates the corresponding weighting factor for each vector:
+    !    W(k) = exp(-|k|^2 / (4 * alpha^2)) / |k|^2
+    ! This factor is used in the reciprocal-space sum of the Ewald method.
+    ! Only done once at the start of the simulation.
     !------------------------------------------------------------------------------
     subroutine InitializeReciprocalWeights()
 
         implicit none
 
         ! Local variables
-        real(real64) :: k_squared           ! Normalized squared k-vector for unit-sphere check
-        real(real64) :: k_squared_mag       ! Squared magnitude of the k-vector
-        integer :: number_of_kpoints        ! Counter for valid k-vectors
-        integer :: kx_idx, ky_idx, kz_idx   ! Reciprocal lattice indices
-        real(real64), dimension(3,3) :: kvec_matrix ! Columns are reciprocal lattice vectors b1, b2, b3
+        integer :: idx                  ! Loop index over precomputed k-vectors
+        real(real64) :: k_squared_mag   ! Squared magnitude of the k-vector
+        real(real64) :: alpha_squared   ! Precompute alpha^2 for efficiency (alpha = screening parameter)
 
-        ! Store reciprocal lattice vectors as columns of a 3x3 matrix
-        kvec_matrix = TWOPI * reshape(primary%reciprocal, shape(kvec_matrix))
+        ! Calculate the square of the screening parameter
+        alpha_squared = ewald%alpha**2
 
-        ! Computes a weighting factor for each reciprocal lattice vector
-        ! Only needs to be done once at the start of the simulations
-        number_of_kpoints = 0
+        ! Loop over all precomputed reciprocal lattice vectors
+        do idx = 1, ewald%num_kvectors
 
-        ! Loop over all reciprocal lattice indices within kmax limits
-        do kx_idx = 0, ewald%kmax(1)
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+            ! Compute the reciprocal-space weighting factor for this k-vector
+            k_squared_mag = ewald%kvectors(idx)%k_squared_mag
+            ewald%recip_constants(idx) = exp(-k_squared_mag / (four * alpha_squared)) / k_squared_mag
 
-                    ! Skip the zero vector (k = 0,0,0) since it does not
-                    ! contribute to reciprocal-space energy.
-                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
-                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
-
-                    ! Compute normalized squared k-vector for unit-sphere check.
-                    ! This avoids including k-vectors outside the spherical
-                    ! cutoff in normalized k-space, reducing computation.
-                    if (k_squared > one) cycle
-
-                    ! Compute the actual squared magnitude of the k-vector
-                    ! in Cartesian coordinates, using the reciprocal lattice
-                    ! vectors. This is needed for the Gaussian damping factor
-                    ! in the Ewald weighting.
-                    k_squared_mag = KVectorSquaredMag(kx_idx, ky_idx, kz_idx, kvec_matrix)
-
-                    ! Increment the valid k-point counter and store its
-                    ! reciprocal-space weighting factor:
-                    !    W(k) = exp(-k^2 / (4 * alpha^2)) / k^2
-                    ! This factor damps short-range contributions and scales
-                    ! by 1/k^2 as required in the Ewald sum.
-                    number_of_kpoints = number_of_kpoints + 1
-                    ewald%recip_constants(number_of_kpoints) = exp(-k_squared_mag/(four*ewald%alpha**2)) / k_squared_mag
-
-                end do
-            end do
         end do
-
-        ! Sanity check
-        if (number_of_kpoints > ewald%num_recip_vectors) then
-            call AbortRun("Too many reciprocal vectors")
-        end if
 
     end subroutine InitializeReciprocalWeights
 
@@ -238,11 +274,13 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+
                     ! Compute normalized squared magnitude of k-vector
                     k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
                     ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (abs(k_squared) < error .or. k_squared > one) cycle
+                    if (.not. IsValidKVector(k_squared)) cycle
 
                     ! Increment the number of valid k-points
                     number_of_kpoints = number_of_kpoints + 1
@@ -350,11 +388,13 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+
                     ! Compute normalized squared magnitude of k-vector
                     k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
                     ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (abs(k_squared) < error .or. k_squared > one) cycle
+                    if (.not. IsValidKVector(k_squared)) cycle
 
                     number_of_kpoints = number_of_kpoints + 1
                     ewald%recip_amplitude_old(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints)
@@ -391,11 +431,13 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+
                     ! Calculate normalized squared magnitude of k-vector
                     k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
                     ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (abs(k_squared) < error .or. k_squared > one) cycle
+                    if (.not. IsValidKVector(k_squared)) cycle
 
                     number_of_kpoints = number_of_kpoints + 1 ! Increment Fourier component index
 
@@ -420,82 +462,6 @@ contains
         u_recipCoulomb_new = u_recipCoulomb_new * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
 
     end subroutine ComputeReciprocalEnergy_singlemol
-
-
-    !------------------------------------------------------------------------------
-    ! subroutine ComputePairInteractionEnergy_singlemol
-    ! Calculates the non-Coulombian and Coulomb (direct space)
-    !------------------------------------------------------------------------------
-    subroutine ComputePairInteractionEnergy_singlemol(box, residue_type_1, molecule_index_1, e_non_coulomb, e_coulomb)
-
-        implicit none
-
-        ! Input arguments
-        type(type_box), intent(inout) :: box
-        integer, intent(in) :: residue_type_1        ! Residue type to be moved
-        integer, intent(in) :: molecule_index_1      ! Molecule ID
-        real(real64), intent(out) :: e_non_coulomb
-        real(real64), intent(out) :: e_coulomb
-
-        ! Local variables
-        integer :: atom_index_1, atom_index_2
-        integer :: molecule_index_2
-        integer :: residue_type_2
-        ! real(real64), dimension(3) :: delta
-        real(real64) :: distance
-        real(real64) :: r6, r12 ! r^n for LJ potential calculations
-        real(real64) :: sigma, epsilon ! Epsilon and sigma LJ potential calculations
-        real(real64) :: charge_1, charge_2 ! Charge for Coulomb interactions
-
-        e_non_coulomb = zero
-        e_coulomb = zero
-
-        ! Loop over sites in molecule residue_type
-        do atom_index_1 = 1, nb%atom_in_residue(residue_type_1) 
-
-            ! Loop over all molecule types 2
-            do residue_type_2 = 1, nb%type_residue
-
-                ! Loop over all molecule index 2
-                do molecule_index_2 = 1, box%num_residues(residue_type_2)
-
-                    ! Remove intra molecular contribution
-                    if ((molecule_index_1 == molecule_index_2) .and. &
-                        (residue_type_1 == residue_type_2)) cycle
-
-                    ! Loop over all side of the selected molecule 2
-                    do atom_index_2 = 1, nb%atom_in_residue(residue_type_2)
-
-                        distance = ComputeDistance(box, residue_type_1, molecule_index_1, atom_index_1, &
-                                   residue_type_2, molecule_index_2, atom_index_2)
-
-                        if (distance < input%real_space_cutoff) then
-                            ! LJ potential
-                            sigma = coeff%sigma(residue_type_1, residue_type_2, atom_index_1, atom_index_2)                            
-                            epsilon = coeff%epsilon(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
-                            r6 = (sigma / distance)**6
-                            r12 = r6 * r6
-                            e_non_coulomb = e_non_coulomb + 4.0_real64 * epsilon * (r12 - r6)
-                        end if
-
-                        ! Use Coulomb potential
-                        charge_1 = primary%atom_charges(residue_type_1, atom_index_1)
-                        charge_2 = primary%atom_charges(residue_type_2, atom_index_2)
-
-                        if ((abs(charge_1) < 1.0D-10) .or. (abs(charge_2) < 1.0D-10)) cycle
-
-                        e_coulomb = e_coulomb + charge_1 * charge_2 * (erfc(ewald%alpha * distance)) / distance
-
-                    end do
-                end do
-            end do
-        end do
-
-        ! Re-scale energy
-        e_coulomb = e_coulomb * EPS0_INV_eVA / KB_eVK
-
-    end subroutine ComputePairInteractionEnergy_singlemol
-
 
     ! Restores the previously saved Fourier components for a given molecule.
     subroutine RestoreFourierState_singlemol(residue_type, molecule_index)
@@ -548,11 +514,13 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
 
+                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+
                     ! Compute normalized squared magnitude of k-vector
                     k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
 
                     ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (abs(k_squared) < error .or. k_squared > one) cycle
+                    if (.not. IsValidKVector(k_squared)) cycle
 
                     number_of_kpoints = number_of_kpoints + 1
                     ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude_old(number_of_kpoints)
@@ -608,7 +576,9 @@ contains
     !   - Otherwise (non-zero index), the factor is 2
     pure function FormFactor(idx) result(factor)
 
+        ! Input arguments
         integer, intent(in) :: idx
+        ! Output argument
         real(real64) :: factor
 
         if (idx == 0) then
@@ -619,6 +589,30 @@ contains
 
     end function FormFactor
 
+    !---------------------------------------------------------------------
+    ! Tests whether a k-vector (expressed as its normalized squared length)
+    ! is valid for inclusion in the reciprocal-space Ewald summation.
+    !
+    ! A k-vector is considered valid if:
+    !   - Its squared magnitude is larger than a small tolerance (not ~0),
+    !   - Its squared magnitude does not exceed 1.0 in normalized space.
+    !
+    ! This prevents division by zero (k ≈ 0) and excludes k-vectors lying
+    ! outside the unit sphere defined by the cutoff in normalized space.
+    !---------------------------------------------------------------------
+    pure function IsValidKVector(k_squared) result(valid)
+
+        ! Input arguments
+        real(real64), intent(in) :: k_squared
+        ! Output argument
+        logical :: valid
+
+        ! Reject near-zero k-vectors (avoid singularity at k=0)
+        ! and any vectors outside the normalized unit sphere.
+        valid = (abs(k_squared) >= zero) .and. (k_squared <= one)
+        
+    end function IsValidKVector
+    
 end module ewald_utils
 
 

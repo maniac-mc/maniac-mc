@@ -2,6 +2,7 @@ module prepare_utils
 
     use simulation_state
     use output_utils
+    use ewald_utils
     use, intrinsic :: iso_fortran_env, only: real64
 
     implicit none
@@ -117,6 +118,9 @@ contains
         ! Step 4: Compute Fourier indices
         call ComputeFourierIndices()
 
+        ! Step 5: Precompute k vectors
+        call PrecomputeKVectors()
+
     end subroutine SetupEwald
 
     !--------------------------------------------------------------------
@@ -180,7 +184,7 @@ contains
     !--------------------------------------------------------------------
     subroutine ComputeFourierIndices()
         ! Compute maximum Fourier indices in X, Y, Z directions
-        ewald%kmax = nint(0.25_real64 + primary%metrics(1:3) * ewald%alpha * ewald%fourier_precision / PI)
+        ewald%kmax = nint(0.25_real64 + primary%metrics(1:3) * ewald%alpha * ewald%fourier_precision / PI)        
         ewald%num_recip_vectors = (ewald%kmax(1) + 1) * (2 * ewald%kmax(2) + 1) * (2 * ewald%kmax(3) + 1)
     end subroutine ComputeFourierIndices
 
