@@ -294,18 +294,15 @@ contains
             ! Use pre-computed form factor
             form_factor = ewald%form_factor(idx)
 
-            ! DOES NOT WORK, FIX
-            ! recip_amplitude = ewald%recip_amplitude(idx)
-
             ! Compute the structure factor (complex amplitude) for this k-vector
-            recip_amplitude =  computeRecipAmplitude(ewald%kvectors(idx)%kx, &
+            recip_amplitude = computeRecipAmplitude(ewald%kvectors(idx)%kx, &
                 ewald%kvectors(idx)%ky, ewald%kvectors(idx)%kz)
 
             ! Retrieve the precomputed reciprocal-space weight
             recip_constant = ewald%recip_constants(idx)
 
             ! Compute squared modulus of the structure factor amplitude
-            amplitude_sq = amplitude_squared(ewald%recip_amplitude(idx))
+            amplitude_sq = amplitude_squared(recip_amplitude)
 
             ! Accumulate reciprocal-space energy:
             ! form_factor * reciprocal constant * |amplitude|^2
