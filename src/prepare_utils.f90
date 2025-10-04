@@ -2,7 +2,9 @@ module prepare_utils
 
     use simulation_state
     use output_utils
-    use ewald_utils
+    use ewald_kvectors
+    use ewald_phase
+    use ewald_energy
     use, intrinsic :: iso_fortran_env, only: real64
 
     implicit none

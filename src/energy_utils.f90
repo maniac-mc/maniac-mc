@@ -4,7 +4,9 @@ module energy_utils
     use tabulated_utils
     use geometry_utils
     use constants
-    use ewald_utils
+    use ewald_kvectors
+    use ewald_phase
+    use ewald_energy
 
     use, intrinsic :: iso_fortran_env, only: real64
     use, intrinsic :: ieee_arithmetic ! To remove eventually

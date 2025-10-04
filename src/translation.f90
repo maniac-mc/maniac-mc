@@ -4,7 +4,9 @@ module molecule_translation
     use simulation_state
     use random_utils
     use energy_utils
-    use ewald_utils
+    use ewald_kvectors
+    use ewald_phase
+    use ewald_energy
     use constants
     use, intrinsic :: iso_fortran_env, only: real64
 
