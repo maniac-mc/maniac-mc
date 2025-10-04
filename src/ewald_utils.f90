@@ -410,19 +410,8 @@ contains
         logical :: creation_flag
         logical :: deletion_flag
 
-        ! Determine if this is a creation scenario
-        if (present(is_creation)) then
-            creation_flag = is_creation
-        else
-            creation_flag = .false.
-        end if
-
-       ! Determine if this is a deletion scenario
-        if (present(is_deletion)) then
-            deletion_flag = is_deletion
-        else
-            deletion_flag = .false.
-        end if
+        creation_flag = present_or_false(is_creation)
+        deletion_flag = present_or_false(is_deletion)
 
         ! Initialize energy accumulator
         u_recipCoulomb_new = zero
@@ -651,10 +640,10 @@ contains
     end function amplitude_squared
 
     !------------------------------------------------------------------------------
-    ! ComputeEwaldSelfInteraction_singlemol
+    ! ComputeEwaldSelfInteractionSingleMol
     ! Computes the Ewald self-energy correction for a single molecule.
     !------------------------------------------------------------------------------
-    subroutine ComputeEwaldSelfInteraction_singlemol(residue_type, self_energy_1)
+    subroutine ComputeEwaldSelfInteractionSingleMol(residue_type, self_energy_1)
         
         implicit none
 
@@ -678,13 +667,13 @@ contains
 
         return
 
-    end subroutine ComputeEwaldSelfInteraction_singlemol
+    end subroutine ComputeEwaldSelfInteractionSingleMol
 
     !------------------------------------------------------------------------------
-    ! ComputeIntraResidueRealCoulombEnergy_singlemol
+    ! ComputeIntraResidueRealCoulombEnergySingleMol
     ! Computes real-space intramolecular Coulomb energy for a molecule.
     !------------------------------------------------------------------------------
-    subroutine ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, u_intraCoulomb_1)
+    subroutine ComputeIntraResidueRealCoulombEnergySingleMol(residue_type, molecule_index, u_intraCoulomb_1)
 
         implicit none
 
@@ -720,7 +709,7 @@ contains
         ! Scale by constants EPS0_INV_eVA and KB_eVK
         u_intraCoulomb_1 = u_intraCoulomb_1 * EPS0_INV_eVA / KB_eVK
 
-    end subroutine ComputeIntraResidueRealCoulombEnergy_singlemol
+    end subroutine ComputeIntraResidueRealCoulombEnergySingleMol
 
     ! Precompute complex exponential factors to be used repeatedly in
     ! reciprocal-space calculations.

@@ -76,4 +76,25 @@ contains
 
     end function RotationMatrix
 
+    !--------------------------------------------------------------------
+    ! present_or_false
+    !
+    ! Utility function to safely handle optional logical arguments.
+    !
+    ! If the optional argument `opt_flag` is present, its value is returned.
+    ! If it is not present, the function returns `.false.` by default.
+    !--------------------------------------------------------------------
+    pure logical function present_or_false(opt_flag)
+
+        logical, intent(in), optional :: opt_flag
+    
+        if (present(opt_flag)) then
+            present_or_false = opt_flag
+        else
+            present_or_false = .false.
+        end if
+    
+    end function present_or_false
+
+
 end module helper_utils

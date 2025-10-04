@@ -284,19 +284,8 @@ contains
         logical :: creation_flag
         logical :: deletion_flag
 
-        ! Determine if this is a creation scenario
-        if (present(is_creation)) then
-            creation_flag = is_creation
-        else
-            creation_flag = .false.
-        end if
-
-        ! Determine if this is a deletion scenario
-        if (present(is_deletion)) then
-            deletion_flag = is_deletion
-        else
-            deletion_flag = .false.
-        end if
+        creation_flag = present_or_false(is_creation)
+        deletion_flag = present_or_false(is_deletion)
 
         if (creation_flag) then
             ! Recompute Fourier terms for the moved molecule
@@ -304,8 +293,8 @@ contains
             ! Creation scenario: compute all energy components
             call ComputeRecipEnergySingleMol(residue_type, molecule_index, new%recip_coulomb, is_creation = creation_flag)
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, new%non_coulomb, new%coulomb)
-            call ComputeEwaldSelfInteraction_singlemol(residue_type, new%ewald_self)
-            call ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, new%intra_coulomb)
+            call ComputeEwaldSelfInteractionSingleMol(residue_type, new%ewald_self)
+            call ComputeIntraResidueRealCoulombEnergySingleMol(residue_type, molecule_index, new%intra_coulomb)
             new%total = new%non_coulomb + new%coulomb + new%recip_coulomb + new%ewald_self + new%intra_coulomb
         else if (deletion_flag) then
             ! Most energy terms of the absence of a molecule are 0
@@ -367,21 +356,11 @@ contains
         logical :: creation_flag
         logical :: deletion_flag
 
-        ! Determine if this is a creation scenario
-        if (present(is_creation)) then
-            creation_flag = is_creation
-        else
-            creation_flag = .false.
-        end if
-
-       ! Determine if this is a deletion scenario
-        if (present(is_deletion)) then
-            deletion_flag = is_deletion
-        else
-            deletion_flag = .false.
-        end if
+        creation_flag = present_or_false(is_creation)
+        deletion_flag = present_or_false(is_deletion)
 
         if (creation_flag) then
+        
             ! Creation scenario: molecule does not exist yet
             ! Most energy terms of an unexisting molecule are 0
             old%non_coulomb = zero
@@ -390,19 +369,25 @@ contains
             old%intra_coulomb = zero
             old%recip_coulomb = energy%recip_coulomb ! global system reciprocal energy
             old%total = old%non_coulomb + old%coulomb + old%recip_coulomb + old%ewald_self + old%intra_coulomb
+        
         else if (deletion_flag) then
-            call ComputeEwaldSelfInteraction_singlemol(residue_type, old%ewald_self)
-            call ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, old%intra_coulomb)
+
+            ! Deletion scenario
+            call ComputeEwaldSelfInteractionSingleMol(residue_type, old%ewald_self)
+            call ComputeIntraResidueRealCoulombEnergySingleMol(residue_type, molecule_index, old%intra_coulomb)
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
             old%recip_coulomb = energy%recip_coulomb
             old%total = old%non_coulomb + old%coulomb + old%recip_coulomb + old%ewald_self + old%intra_coulomb
+        
         else
+        
             ! Normal pre-move scenario: molecule exists
             ! Compute current energy (cf e_old)
             call ComputeRecipEnergySingleMol(residue_type, molecule_index, old%recip_coulomb)
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
             ! Note: Translation/Translation does not affect ewald_self or intra_coulomb
             old%total = old%non_coulomb + old%coulomb + old%recip_coulomb
+        
         end if
 
     end subroutine ComputeOldEnergy
