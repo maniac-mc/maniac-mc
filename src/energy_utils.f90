@@ -370,14 +370,14 @@ contains
                             epsilon = coeff%epsilon(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
                             r6 = (sigma / distance)**6
                             r12 = r6 * r6
-                            e_non_coulomb = e_non_coulomb + 4.0_real64 * epsilon * (r12 - r6)
+                            e_non_coulomb = e_non_coulomb + four * epsilon * (r12 - r6)
                         end if
 
                         ! Use Coulomb potential
                         charge_1 = primary%atom_charges(residue_type_1, atom_index_1)
                         charge_2 = primary%atom_charges(residue_type_2, atom_index_2)
 
-                        if ((abs(charge_1) < 1.0D-10) .or. (abs(charge_2) < 1.0D-10)) cycle
+                        if ((abs(charge_1) < error) .or. (abs(charge_2) < one)) cycle
 
                         e_coulomb = e_coulomb + charge_1 * charge_2 * (erfc(ewald%alpha * distance)) / distance
 

@@ -1,14 +1,14 @@
 module montecarlo_module
 
-    use monte_carlo_utils       ! Provides Monte Carlo-specific utilities (e.g., step adjustment)
-    !use molecule_creation       ! Provides routines to insert new molecules into the system
-    !use molecule_deletion       ! Provides routines to remove molecules from the system
-    !use molecule_rotation       ! Provides routines to perform rotational moves on molecules
     use molecule_translation    ! Provides routines to perform translational moves on molecules
-    use write_utils             ! Utilities for writing formatted output or logs
-    use output_utils            ! Handles updating files and printing simulation status
+    use monte_carlo_utils       ! Provides Monte Carlo-specific utilities (e.g., step adjustment)
+    use molecule_creation       ! Provides routines to insert new molecules into the system
+    use molecule_deletion       ! Provides routines to remove molecules from the system
+    use molecule_rotation       ! Provides routines to perform rotational moves on molecules
     use simulation_state        ! Stores and manages the current state of the simulation
+    use output_utils            ! Handles updating files and printing simulation status
     use random_utils            ! Provides random number generation routines
+    use write_utils             ! Utilities for writing formatted output or logs
     use constants               ! Defines physical and simulation constants
 
     use, intrinsic :: iso_fortran_env, only: real64 ! Ensures consistent 64-bit real precision
@@ -52,23 +52,26 @@ contains
                     ! Case 1: Small translation move
                     call Translation(residue_type, molecule_index)
 
-                ! else if (random_draw <= proba%rotation+proba%translation) then
+                else if (random_draw <= proba%rotation+proba%translation) then
 
-                !     ! Case 2: Rotation move
-                !     call Rotation(residue_type, molecule_index)
+                    ! Case 2: Rotation move
+                    call Rotation(residue_type, molecule_index)
                 
-                ! else ! Insertion/deletion move
+                else ! Insertion/deletion move
 
-                !     ! Case 3: Insertion or deletion move
-                !     if (rand_uniform() <= PROB_CREATE_DELETE) then
-                !         ! Attempt to create a molecule of species residue_type
-                !         molecule_index = primary%num_residues(residue_type) + 1
-                !         call CreateMolecule(residue_type, molecule_index)
+                    ! Case 3: Insertion or deletion move
+                    if (rand_uniform() <= PROB_CREATE_DELETE) then
+                        
+                        ! Attempt to create a molecule of species residue_type
+                        molecule_index = primary%num_residues(residue_type) + 1
+                        call CreateMolecule(residue_type, molecule_index)
 
-                !     else
-                !         ! Attempt to delete a randomly chosen molecule of species residue_type
-                !         call DeleteMolecule(residue_type, molecule_index)
-                !     end if
+                    else
+                        
+                        ! Attempt to delete a randomly chosen molecule of species residue_type
+                        call DeleteMolecule(residue_type, molecule_index)
+                    
+                    end if
                 end if
 
              end do

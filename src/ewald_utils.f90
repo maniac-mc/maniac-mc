@@ -94,58 +94,6 @@ contains
 
     end subroutine InitializeReciprocalWeights
 
-    ! Precompute complex exponential factors to be used repeatedly in
-    ! reciprocal-space calculations.
-    subroutine SingleMolFourierTerms(residue_type, molecule_index)
-
-        implicit none
-
-        ! Input arguments
-        integer, intent(in) :: residue_type
-        integer, intent(in) :: molecule_index
-
-        ! Local variables
-        integer :: atom_index_1                 ! Atom index
-        real(real64), dimension(3) :: atom      ! Atom coordinates in real space
-        real(real64), dimension(3) :: phase     ! Phase factors for Fourier terms
-        integer :: kmax_x, kmax_y, kmax_z       ! max k indices for each direction
-        complex(real64), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
-
-        ! Determine kmax for each direction
-        kmax_x = ewald%kmax(1)
-        kmax_y = ewald%kmax(2)
-        kmax_z = ewald%kmax(3)
-
-        ! Allocate temporary arrays once
-        allocate(temp_x(-kmax_x:kmax_x))
-        allocate(temp_y(-kmax_y:kmax_y))
-        allocate(temp_z(-kmax_z:kmax_z))
-
-        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
-
-            atom = primary%mol_com(:, residue_type, molecule_index) + &
-                primary%site_offset(:, residue_type, molecule_index, atom_index_1)
-
-            ! Compute the phase vector components as the dot product of the atom position
-            ! with each reciprocal lattice vector (columns of reciprocal_box), scaled by 2π.
-            call ComputeAtomPhase(atom, primary%reciprocal, phase)
-
-            ! Precompute the complex exponential (phase) factors for this atom
-            ! along each Cartesian direction. These factors will be used repeatedly
-            ! in the reciprocal-space sum for the Ewald energy.
-            call ComputePhaseFactors1D(temp_x, phase(1), kmax_x)
-            ewald%phase_factor_x(residue_type, molecule_index, atom_index_1, :) = temp_x
-
-            call ComputePhaseFactors1D(temp_y, phase(2), kmax_y)
-            ewald%phase_factor_y(residue_type, molecule_index, atom_index_1, :) = temp_y
-
-            call ComputePhaseFactors1D(temp_z, phase(3), kmax_z)
-            ewald%phase_factor_z(residue_type, molecule_index, atom_index_1, :) = temp_z
-
-        end do
-
-    end subroutine SingleMolFourierTerms
-
     !--------------------------------------------------------------------
     ! Computes the phase vector for a single atom in reciprocal space.
     !
@@ -487,7 +435,7 @@ contains
     end subroutine ComputeReciprocalEnergy_singlemol
 
     !--------------------------------------------------------------------
-    ! RestoreFourierState_singlemol
+    ! RestoreSingleMolFourier
     !
     ! Restores the phase factors and reciprocal amplitudes of a single
     ! molecule (or residue) from their saved "old" values. This is used
@@ -499,7 +447,7 @@ contains
     !   2. Restore reciprocal amplitudes A(k) for all valid k-vectors
     !      from their backup array.
     !--------------------------------------------------------------------
-    subroutine RestoreFourierState_singlemol(residue_type, molecule_index)
+    subroutine RestoreSingleMolFourier(residue_type, molecule_index)
 
         implicit none
 
@@ -549,7 +497,7 @@ contains
             ewald%recip_amplitude(idx) = ewald%recip_amplitude_old(idx)
         end do
 
-    end subroutine RestoreFourierState_singlemol
+    end subroutine RestoreSingleMolFourier
 
     ! Computes the normalized squared magnitude of a reciprocal lattice 
     ! vector in index space.
@@ -647,5 +595,292 @@ contains
         val = real(z*conjg(z), kind=real64)
 
     end function amplitude_squared
+
+    subroutine UpdateReciprocalEnergy_creation(residue_type, molecule_index, u_recipCoulomb_new)
+
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type
+        integer, intent(in) :: molecule_index
+        real(real64), intent(out) :: u_recipCoulomb_new
+
+        ! Local variables
+        integer :: kx_idx, ky_idx, kz_idx
+        integer :: number_of_kpoints
+        real(real64) :: form_factor
+        real(real64) :: k_squared
+
+        ! Initialize
+        u_recipCoulomb_new = 0.0_real64
+        number_of_kpoints = 0
+
+        ! Update recip_amplitude by adding (is_creation=.true.) or subtracting (is_creation=.false.) the molecule's contribution
+        do kx_idx = 0, ewald%kmax(1)
+
+            if (kx_idx == 0) then
+                form_factor = 1.0_real64
+            else
+                form_factor = 2.0_real64
+            end if
+
+            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
+                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+
+                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
+                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
+                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
+
+                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1.0_real64) cycle
+
+                    number_of_kpoints = number_of_kpoints + 1
+
+                    ! Update recip_amplitude(number_of_kpoints)
+                    ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints) + &
+                        sum(primary%atom_charges(residue_type, 1:nb%atom_in_residue(residue_type)) * &
+                            ewald%phase_factor_x(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), kx_idx) * &
+                            ewald%phase_factor_y(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), ky_idx) * &
+                            ewald%phase_factor_z(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), kz_idx))
+
+                    u_recipCoulomb_new = u_recipCoulomb_new + form_factor * ewald%recip_constants(number_of_kpoints) * &
+                        real(ewald%recip_amplitude(number_of_kpoints) * CONJG(ewald%recip_amplitude(number_of_kpoints)), KIND=8)
+                
+                end do
+            end do
+        end do
+
+        ! Scale energy
+        u_recipCoulomb_new = u_recipCoulomb_new * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
+
+    end subroutine UpdateReciprocalEnergy_creation
+
+    subroutine UpdateReciprocalEnergy_deletion(residue_type, u_recipCoulomb_new)
+
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type
+        real(real64), intent(out) :: u_recipCoulomb_new
+
+        ! Local variables
+        integer :: kx_idx, ky_idx, kz_idx
+        integer :: number_of_kpoints
+        real(real64) :: form_factor, k_squared
+
+        ! Initialize
+        u_recipCoulomb_new = 0.0_real64
+        number_of_kpoints = 0
+
+        ! Update recip_amplitude by adding (is_creation=.true.) or subtracting (is_creation=.false.) the molecule's contribution
+        do kx_idx = 0, ewald%kmax(1)
+
+            if (kx_idx == 0) then
+                form_factor = 1.0_real64
+            else
+                form_factor = 2.0_real64
+            end if
+
+            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
+                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+
+                    k_squared = (dble(kx_idx)/dble(ewald%kmax(1)))**2 + &
+                                (dble(ky_idx)/dble(ewald%kmax(2)))**2 + &
+                                (dble(kz_idx)/dble(ewald%kmax(3)))**2
+
+                    if (abs(k_squared) < 1.0D-12 .OR. k_squared > 1.0_real64) cycle
+
+                    number_of_kpoints = number_of_kpoints + 1
+
+                    ! Update recip_amplitude(number_of_kpoints)
+                    ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints) - &
+                        sum(primary%atom_charges(residue_type, 1:nb%atom_in_residue(residue_type)) * &
+                            ewald%phase_factor_x_old(1:nb%atom_in_residue(residue_type), kx_idx) * &
+                            ewald%phase_factor_y_old(1:nb%atom_in_residue(residue_type), ky_idx) * &
+                            ewald%phase_factor_z_old(1:nb%atom_in_residue(residue_type), kz_idx))
+
+                    u_recipCoulomb_new = u_recipCoulomb_new + form_factor * ewald%recip_constants(number_of_kpoints) * &
+                        real(ewald%recip_amplitude(number_of_kpoints) * CONJG(ewald%recip_amplitude(number_of_kpoints)), KIND=8)
+                
+                end do
+            end do
+        end do
+
+        ! Scale energy
+        u_recipCoulomb_new = u_recipCoulomb_new * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
+
+    end subroutine UpdateReciprocalEnergy_deletion
+
+    !------------------------------------------------------------------------------
+    ! ComputeEwaldSelfInteraction_singlemol
+    ! Computes the Ewald self-energy correction for a single molecule.
+    !------------------------------------------------------------------------------
+    subroutine ComputeEwaldSelfInteraction_singlemol(residue_type, self_energy_1)
+        
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type
+        real(real64), intent(out) :: self_energy_1
+
+        ! Local variables
+        integer :: atom_index_1
+        real(real64) :: charge_1
+
+        self_energy_1 = 0.0_real64
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
+            charge_1 = primary%atom_charges(residue_type, atom_index_1)
+            if (abs(charge_1) < 1.0D-10) cycle
+            self_energy_1 = self_energy_1 - ewald%alpha / SQRTPI * charge_1**2
+        end do
+
+        ! Scale by constants EPS0_INV_eVA and KB_eVK
+        self_energy_1 = self_energy_1 * EPS0_INV_eVA / KB_eVK 
+
+        return
+
+    end subroutine ComputeEwaldSelfInteraction_singlemol
+
+    !------------------------------------------------------------------------------
+    ! ComputeIntraResidueRealCoulombEnergy_singlemol
+    ! Computes real-space intramolecular Coulomb energy for a molecule.
+    !------------------------------------------------------------------------------
+    subroutine ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, u_intraCoulomb_1)
+
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type
+        integer, intent(in) :: molecule_index
+        real(real64), intent(out) :: u_intraCoulomb_1
+
+        ! Local variables
+        integer :: atom_index_1, atom_index_2
+        real(real64) :: distance
+        real(real64) :: charge_1, charge_2
+
+        u_intraCoulomb_1 = 0
+
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type)-1
+            charge_1 = primary%atom_charges(residue_type, atom_index_1)
+
+            do atom_index_2 = atom_index_1+1, nb%atom_in_residue(residue_type)
+                charge_2 = primary%atom_charges(residue_type, atom_index_2)
+
+                distance = ComputeDistance(primary, residue_type, molecule_index, atom_index_1, &
+                            residue_type, molecule_index, atom_index_2)
+
+                if (distance > 1.0d-10) then
+                    u_intraCoulomb_1 = u_intraCoulomb_1 + &
+                        charge_1 * charge_2 * (erfc(ewald%alpha * distance) - 1.0d0) / distance
+                end if
+
+            end do
+        end do
+
+        ! Scale by constants EPS0_INV_eVA and KB_eVK
+        u_intraCoulomb_1 = u_intraCoulomb_1 * EPS0_INV_eVA / KB_eVK
+
+    end subroutine ComputeIntraResidueRealCoulombEnergy_singlemol
+
+    ! Precompute complex exponential factors to be used repeatedly in
+    ! reciprocal-space calculations.
+    subroutine SingleMolFourierTerms(residue_type, molecule_index)
+
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type
+        integer, intent(in) :: molecule_index
+
+        ! Local variables
+        integer :: atom_index_1                 ! Atom index
+        real(real64), dimension(3) :: atom      ! Atom coordinates in real space
+        real(real64), dimension(3) :: phase     ! Phase factors for Fourier terms
+        integer :: kmax_x, kmax_y, kmax_z       ! max k indices for each direction
+        complex(real64), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
+
+        ! Determine kmax for each direction
+        kmax_x = ewald%kmax(1)
+        kmax_y = ewald%kmax(2)
+        kmax_z = ewald%kmax(3)
+
+        ! Allocate temporary arrays once
+        allocate(temp_x(-kmax_x:kmax_x))
+        allocate(temp_y(-kmax_y:kmax_y))
+        allocate(temp_z(-kmax_z:kmax_z))
+
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
+
+            atom = primary%mol_com(:, residue_type, molecule_index) + &
+                primary%site_offset(:, residue_type, molecule_index, atom_index_1)
+
+            ! Compute the phase vector components as the dot product of the atom position
+            ! with each reciprocal lattice vector (columns of reciprocal_box), scaled by 2π.
+            call ComputeAtomPhase(atom, primary%reciprocal, phase)
+
+            ! Precompute the complex exponential (phase) factors for this atom
+            ! along each Cartesian direction. These factors will be used repeatedly
+            ! in the reciprocal-space sum for the Ewald energy.
+            call ComputePhaseFactors1D(temp_x, phase(1), kmax_x)
+            ewald%phase_factor_x(residue_type, molecule_index, atom_index_1, :) = temp_x
+
+            call ComputePhaseFactors1D(temp_y, phase(2), kmax_y)
+            ewald%phase_factor_y(residue_type, molecule_index, atom_index_1, :) = temp_y
+
+            call ComputePhaseFactors1D(temp_z, phase(3), kmax_z)
+            ewald%phase_factor_z(residue_type, molecule_index, atom_index_1, :) = temp_z
+
+        end do
+
+    end subroutine SingleMolFourierTerms
+
+    subroutine ReplaceFourierTerms_singlemol(residue_type, index_1, index_2)
+
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type
+        integer, intent(in) :: index_1
+        integer, intent(in) :: index_2
+
+        ! Local variables
+        integer :: kx_idx, ky_idx, kz_idx
+        integer :: atom_index_1
+        integer :: number_of_kpoints
+
+        ! Initialize
+        number_of_kpoints = 0
+
+        ! Restore IKX, IKY, IKZ from backups
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
+
+            ! Restore IKX
+            do kx_idx = 0, ewald%kmax(1)
+                ewald%phase_factor_x(residue_type, index_1, atom_index_1, kx_idx) = &
+                    ewald%phase_factor_x(residue_type, index_2, atom_index_1, kx_idx)
+            end do
+
+            ! Restore IKY (include negative KY only if non-zero)
+            do ky_idx = 0, ewald%kmax(2)
+                ewald%phase_factor_y(residue_type, index_1, atom_index_1, ky_idx) = &
+                    ewald%phase_factor_y(residue_type, index_2, atom_index_1, ky_idx)
+                if (ky_idx /= 0) then
+                    ewald%phase_factor_y(residue_type, index_1, atom_index_1, -ky_idx) = &
+                        ewald%phase_factor_y(residue_type, index_2, atom_index_1, -ky_idx)
+                end if
+            end do
+
+            ! Restore IKZ (include negative KZ only if non-zero)
+            do kz_idx = 0, ewald%kmax(3)
+                ewald%phase_factor_z(residue_type, index_1, atom_index_1, kz_idx) = &
+                    ewald%phase_factor_z(residue_type, index_2, atom_index_1, kz_idx)
+                if (kz_idx /= 0) then
+                    ewald%phase_factor_z(residue_type, index_1, atom_index_1, -kz_idx) = &
+                        ewald%phase_factor_z(residue_type, index_2, atom_index_1, -kz_idx)
+                end if
+            end do
+        end do
+
+    end subroutine ReplaceFourierTerms_singlemol
 
 end module ewald_utils

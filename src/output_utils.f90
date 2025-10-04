@@ -203,7 +203,7 @@ contains
         call LogMessage(formatted_msg)
 
         write(formatted_msg,'(I10,1X,F14.4,1X,F14.4,1X,F14.4,1X,F14.4,2X,F10.4,2X,F10.4,2X,'// &
-                            ' "T(",I0,"/",I0,") R(",I0,"/",I0,") B(",I0,"/",I0,") C(",I0,"/",I0,") D(",I0,"/",I0,")")') &
+                            ' "T(",I0,"/",I0,") R(",I0,"/",I0,") C(",I0,"/",I0,") D(",I0,"/",I0,")")') &
             current_block, e_tot_kcalmol, e_non_coulomb_kcalmol, e_coul_kcalmol, e_long_kcalmol, &
             input%translation_step, input%rotation_step_angle, &
             counter%translations, counter%trial_translations, &
