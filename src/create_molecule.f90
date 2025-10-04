@@ -1,7 +1,9 @@
 module molecule_creation
 
     use monte_carlo_utils
-    use ewald_utils
+    use ewald_kvectors
+    use ewald_phase
+    use ewald_energy
     use simulation_state
     use random_utils
     use energy_utils

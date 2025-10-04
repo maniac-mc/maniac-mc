@@ -3,7 +3,9 @@ module monte_carlo_utils
     use simulation_state
     use random_utils
     use constants
-    use ewald_utils
+    use ewald_kvectors
+    use ewald_phase
+    use ewald_energy
     use output_utils
     use energy_utils
     use helper_utils
