@@ -114,42 +114,9 @@ contains
             primary%site_offset(:, residue_type, last_molecule_index, 1:nb%atom_in_residue(residue_type))
 
         ! Replace Fourier terms
-        call ReplaceFourierTerms_singlemol(residue_type, molecule_index, last_molecule_index)
+        call ReplaceFourierTermsSingleMol(residue_type, molecule_index, last_molecule_index)
 
     end subroutine RemoveMolecule
-
-    ! ! subroutine ComputeNewEnergy(residue_type, new)
-
-    ! !     implicit none
-
-    ! !     type(energy_state), intent(inout) :: new    ! New energy states
-    ! !     integer, intent(in) :: residue_type         ! Residue type to be moved
-
-    ! !     ! Most energy terms of the absence of a molecule are 0
-    ! !     ! Must only recalculate energy%recip_coulomb
-    ! !     new%non_coulomb = 0
-    ! !     new%coulomb = 0
-    ! !     new%ewald_self = 0
-    ! !     new%intra_coulomb = 0
-    ! !     call UpdateReciprocalEnergy_deletion(residue_type, new%recip_coulomb)
-    ! !     new%total = new%non_coulomb + new%coulomb + new%recip_coulomb + new%ewald_self + new%intra_coulomb
-
-    ! ! end subroutine ComputeNewEnergy
-    ! subroutine ComputeOldEnergy(residue_type, molecule_index, old)
-
-    !     implicit none
-
-    !     type(energy_state), intent(inout) :: old    ! old energy states
-    !     integer, intent(in) :: residue_type         ! Residue type to be moved
-    !     integer, intent(in) :: molecule_index       ! Molecule ID
-
-    !     call ComputeEwaldSelfInteraction_singlemol(residue_type, old%ewald_self)
-    !     call ComputeIntraResidueRealCoulombEnergy_singlemol(residue_type, molecule_index, old%intra_coulomb)
-    !     call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
-    !     old%recip_coulomb = energy%recip_coulomb
-    !     old%total = old%non_coulomb + old%coulomb + old%recip_coulomb + old%ewald_self + old%intra_coulomb
-
-    ! end subroutine ComputeOldEnergy
 
     subroutine AcceptDeletionMove(residue_type, last_molecule_index, old, new)
 

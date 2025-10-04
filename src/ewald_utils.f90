@@ -257,10 +257,14 @@ contains
         implicit none
 
         ! Input arguments
-        integer, intent(in) :: kx_idx, ky_idx, kz_idx
+        integer, intent(in) :: kx_idx, ky_idx, kz_idx       ! Reciprocal lattice vector indices
         ! Internal variables
-        complex(real64) :: amplitude
-        integer :: residue_type, molecule_index, atom_index
+        complex(real64) :: amplitude                        ! Accumulated structure factor amplitude A(k)
+        complex(real64) :: phase                            ! Phase factor product for a single atom
+        real(real64) :: charges                             ! Partial charge of the current atom
+        integer :: residue_type                             ! Index of the current residue type
+        integer :: molecule_index                           ! Index of the current molecule
+        integer :: atom_index                               ! Index of the current atom
 
         ! Initialize amplitude to zero (complex)
         amplitude = (zero, zero)
@@ -271,12 +275,17 @@ contains
             do molecule_index = 1, primary%num_residues(residue_type)
                 ! Loop over sites in molecule
                 do atom_index = 1, nb%atom_in_residue(residue_type)
+
+                    ! Extract charge and phase
+                    charges = primary%atom_charges(residue_type, atom_index)
+                    phase = ewald%phase_factor_x(residue_type, molecule_index, atom_index, kx_idx) * &
+                            ewald%phase_factor_y(residue_type, molecule_index, atom_index, ky_idx) * &
+                            ewald%phase_factor_z(residue_type, molecule_index, atom_index, kz_idx)
+
                     ! Accumulate contribution from this atom:
                     ! charge * exp(i k · r) factor in x, y, z directions
-                    amplitude = amplitude + primary%atom_charges(residue_type, atom_index) * &
-                                ewald%phase_factor_x(residue_type, molecule_index, atom_index, kx_idx) * &
-                                ewald%phase_factor_y(residue_type, molecule_index, atom_index, ky_idx) * &
-                                ewald%phase_factor_z(residue_type, molecule_index, atom_index, kz_idx)
+                    amplitude = amplitude + charges * phase
+
                 end do
             end do
         end do
@@ -763,7 +772,7 @@ contains
 
     end subroutine SingleMolFourierTerms
 
-    subroutine ReplaceFourierTerms_singlemol(residue_type, index_1, index_2)
+    subroutine ReplaceFourierTermsSingleMol(residue_type, index_1, index_2)
 
         implicit none
 
@@ -810,6 +819,6 @@ contains
             end do
         end do
 
-    end subroutine ReplaceFourierTerms_singlemol
+    end subroutine ReplaceFourierTermsSingleMol
 
 end module ewald_utils
