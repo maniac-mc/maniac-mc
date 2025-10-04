@@ -3,6 +3,7 @@
 [![Build](https://github.com/maniac-mc/maniac-mc/actions/workflows/tests.yml/badge.svg)](https://github.com/maniac-mc/maniac-mc/actions/workflows/tests.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Last Commit](https://img.shields.io/github/last-commit/maniac-mc/maniac-mc)
+![GitHub release](https://img.shields.io/github/v/release/maniac-mc/maniac-mc)
 
 <img
     src="https://raw.githubusercontent.com/maniac-mc/mc-visuals/refs/heads/main/gallery/ZIF8-H2O/system.png"

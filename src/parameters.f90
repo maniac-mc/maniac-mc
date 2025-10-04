@@ -36,8 +36,6 @@ module parameters
     integer, parameter :: TYPE_DELETION = 2 ! Move type: molecule deletion
     integer, parameter :: TYPE_TRANSLATION = 3 ! Move type: molecular translation
     integer, parameter :: TYPE_ROTATION = 4 ! Move type: molecular rotation
-    integer, parameter :: TYPE_SMALLMOVE = 0 ! Subtype: small translation move
-    integer, parameter :: TYPE_BIGMOVE = 1 ! Subtype: large "jump" move
 
     ! In module parameters
     integer, parameter :: TABULATED_POINTS = 5000  ! Default number of points in tabulated functions

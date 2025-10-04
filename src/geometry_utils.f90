@@ -145,31 +145,50 @@ contains
         ! Input parameters
         type(type_box), intent(in) :: box
         real(real64), dimension(3), intent(inout) :: pos
-
         ! Local variables
         real(real64), dimension(3) :: frac_coords    ! Fractional coordinates inside the box
-        real(real64), dimension(3) :: box_lengths    ! Box lengths along x, y, z (diagonal)
+        real(real64) :: box_length                   ! Box length
+        real(real64) :: lower_bound                  ! Low bound
         integer :: dim                               ! Loop index
 
         ! Orthogonal / Rectangular Box
         if (.not. box%is_triclinic) then
+
             do dim = 1,3
-                box_lengths(dim) = box%matrix(dim,dim)
-                pos(dim) = box%bounds(dim,1) + modulo(pos(dim) - box%bounds(dim,1), box_lengths(dim))
+
+                box_length   = box%matrix(dim, dim)     ! Box length along this dimension
+                lower_bound  = box%bounds(dim, 1)      ! Lower bound (minimum coordinate) along this dimension
+
+                ! Wrap coordinate into [lower_bound, lower_bound + box_length):
+                ! x' = lower_bound + mod(x - lower_bound, box_length)
+                pos(dim) = lower_bound + modulo(pos(dim) - lower_bound, box_length)
+            
             end do
 
         ! Triclinic Box
         else
+        
             ! Convert Cartesian -> fractional coordinates
+            ! Using the box matrix H (columns = box vectors):
+            !   s = H^{-1} * (r - r0)
+            ! where:
+            !   r  = Cartesian position
+            !   r0 = lower corner of the box (box%bounds(:,1))
+            !   s  = fractional coordinates in [0,1)^3
             frac_coords = matmul(box%reciprocal, pos - box%bounds(:,1))
 
             ! Wrap fractional coords into [0,1)
+            ! Equation: s' = mod(s, 1)
+            ! Ensures each fractional component lies inside the unit cube
             do dim = 1,3
-                frac_coords(dim) = modulo(frac_coords(dim), 1.0_real64)
+                frac_coords(dim) = modulo(frac_coords(dim), one)
             end do
 
             ! Convert back to Cartesian
+            ! Equation: r' = r0 + H * s'
+            ! Resulting position r' is wrapped inside the triclinic box
             pos = box%bounds(:,1) + matmul(box%matrix, frac_coords)
+
         end if
 
     end subroutine ApplyPBC
