@@ -72,6 +72,11 @@ contains
                     ewald%kvectors(count)%kz = kz_idx
                     ewald%kvectors(count)%k_squared = k_squared
                     ewald%kvectors(count)%k_squared_mag = k_squared_mag
+
+                    ! Compute the complex reciprocal amplitude (structure factor) for this k-vector
+                    !ewald%recip_amplitude(count) = computeRecipAmplitude(kx_idx, ky_idx, kz_idx)
+                    ! DOES NOT WORK, FIX
+
                 end do
             end do
         end do
@@ -242,10 +247,20 @@ contains
     !--------------------------------------------------------------------
     ! Computes the reciprocal-space contribution to the Coulomb energy
     !
-    ! The energy is computed using Ewald summation in reciprocal space by
-    ! looping over allowed k-vectors (excluding zero and vectors outside
-    ! the unit sphere in normalized k-space) and summing the squared
-    ! structure factor amplitudes multiplied by the reciprocal constants.
+    ! This subroutine calculates the Ewald reciprocal-space energy using
+    ! precomputed k-vectors stored in ewald%kvectors. Each k-vector's
+    ! structure factor amplitude is computed, squared, and weighted by
+    ! the precomputed reciprocal constant and the form factor.
+    !
+    ! Advantages of using precomputed k-vectors:
+    !   - Eliminates triple nested loops over kx, ky, kz indices.
+    !   - Avoids repeated computation of k-vector magnitudes.
+    !   - k=0 and vectors outside the unit-sphere cutoff are already excluded.
+    !
+    ! Energy formula for each k-vector:
+    !   E_k = form_factor * recip_constant * |recip_amplitude|^2
+    !
+    ! The total reciprocal energy is scaled to eV per molecule.
     !--------------------------------------------------------------------
     subroutine ComputeReciprocalEnergy(u_recipCoulomb)
 
@@ -253,49 +268,36 @@ contains
 
         ! Input arguments
         real(real64), intent(out) :: u_recipCoulomb
-
         ! Internal variables
-        integer :: number_of_kpoints        ! Counter for valid reciprocal lattice vectors (excluding k=0 and outside unit sphere)
-        integer :: kx_idx, ky_idx, kz_idx   ! Indices of the reciprocal lattice vector along x, y, z
-        real(real64) :: form_factor         ! Weighting factor accounting for positive/negative k-vector contributions
-        real(real64) :: k_squared           ! Normalized squared magnitude of k-vector for unit-sphere cutoff check
+        integer :: idx                   ! Index over precomputed reciprocal vectors
+        real(real64) :: form_factor      ! Factor to account for symmetry (k vs -k)
+        complex(8) :: recip_amplitude    ! Structure factor for the current k-vector
+        real(real64) :: recip_constant   ! Precomputed Ewald reciprocal-space weight
 
         ! Initialize
-        number_of_kpoints = 0
         u_recipCoulomb = zero
 
-        ! Compute reciprocal-space energy sum over allowed k-vectors
-        ! excluding zero and outside cutoff
-        do kx_idx = 0, ewald%kmax(1)
+        ! Loop over all precomputed reciprocal lattice vectors
+        do idx = 1, ewald%num_kvectors
 
             ! Compute form factor for current kx index: 1 for zero, 2 otherwise
-            form_factor =  FormFactor(kx_idx)
+            form_factor =  FormFactor(ewald%kvectors(idx)%kx)
 
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+            ! DOES NOT WORK, FIX
+            ! recip_amplitude = ewald%recip_amplitude(idx)
 
-                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+            ! Compute the structure factor (complex amplitude) for this k-vector
+            recip_amplitude =  computeRecipAmplitude(ewald%kvectors(idx)%kx, &
+                ewald%kvectors(idx)%ky, ewald%kvectors(idx)%kz)
 
-                    ! Compute normalized squared magnitude of k-vector
-                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
+            ! Retrieve the precomputed reciprocal-space weight
+            recip_constant = ewald%recip_constants(idx)
 
-                    ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (.not. IsValidKVector(k_squared)) cycle
-
-                    ! Increment the number of valid k-points
-                    number_of_kpoints = number_of_kpoints + 1
-
-                    ! Compute the complex reciprocal amplitude (structure factor) for this k-vector
-                    ewald%recip_amplitude(number_of_kpoints) = computeRecipAmplitude(kx_idx, ky_idx, kz_idx)
-
-                    ! Accumulate reciprocal-space energy:
-                    ! form_factor * reciprocal constant * |amplitude|^2
-                    u_recipCoulomb = u_recipCoulomb + form_factor * ewald%recip_constants(number_of_kpoints) * &
-                                    real(ewald%recip_amplitude(number_of_kpoints) * &
-                                    conjg(ewald%recip_amplitude(number_of_kpoints)), kind=8)
-
-                end do
-            end do
+            ! Accumulate reciprocal-space energy:
+            ! form_factor * reciprocal constant * |amplitude|^2
+            ! E_k = form_factor * recip_constant * |recip_amplitude|^2
+            u_recipCoulomb = u_recipCoulomb + form_factor * recip_constant * &
+                real(recip_amplitude * conjg(recip_amplitude), kind=8)
         end do
 
         ! Convert accumulated energy to correct units (eV per molecule)
@@ -398,87 +400,122 @@ contains
 
                     number_of_kpoints = number_of_kpoints + 1
                     ewald%recip_amplitude_old(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints)
-                
                 end do
             end do
         end do
 
     end subroutine SaveSingleMolFourierTerms
 
+    !--------------------------------------------------------------------
+    ! ComputeReciprocalEnergy_singlemol
+    !
+    ! Computes the reciprocal-space contribution to the Coulomb energy
+    ! for a single molecule or residue using the Ewald summation method.
+    !
+    ! For each precomputed reciprocal lattice vector (k-vector):
+    !   1. Update the Fourier coefficient (structure factor amplitude)
+    !      using atom charges and phase factors for the current molecule.
+    !      The difference between new and old phase factors ensures
+    !      incremental updates during MC/MD moves.
+    !   2. Accumulate the corresponding energy contribution:
+    !         E_k = form_factor * W(k) * |A(k)|^2
+    !      where W(k) is the reciprocal constant and A(k) is the structure factor.
+    !
+    ! The final result is converted to physical energy units (eV per molecule).
+    !--------------------------------------------------------------------
     subroutine ComputeReciprocalEnergy_singlemol(residue_type, molecule_index, u_recipCoulomb_new)
 
         implicit none
 
         ! Input arguments
-        integer, intent(in) :: residue_type
-        integer, intent(in) :: molecule_index
-        real(real64), intent(out) :: u_recipCoulomb_new
-
+        integer, intent(in) :: residue_type    ! Index of the residue type
+        integer, intent(in) :: molecule_index  ! Index of the molecule in the system
+        real(real64), intent(out) :: u_recipCoulomb_new  ! Output: reciprocal-space Coulomb energy
         ! Local variables
-        integer :: kx_idx, ky_idx, kz_idx ! Index for reciprocal lattice vector x-y-z-component
-        integer :: number_of_kpoints ! Index counter for Fourier components (reciprocal space)
-        real(real64) :: form_factor ! Multiplicative factor used in energy calculations
-        real(real64) :: k_squared
+        integer :: kx_idx, ky_idx, kz_idx      ! Components of current reciprocal lattice vector
+        integer :: idx                         ! Loop index over precomputed k-vectors
+        integer :: natoms                      ! Number of atoms in this residue type
+        real(real64) :: amplitude_sq           ! Squared modulus of the structure factor amplitude
+        real(real64) :: form_factor            ! Symmetry factor: 1 if kx=0, 2 otherwise
+        real(real64), dimension(:), allocatable :: charges   ! Partial charges of atoms
+        complex(8), dimension(:), allocatable :: phase_new   ! Updated phase factor product
+        complex(8), dimension(:), allocatable :: phase_old   ! Previous phase factor product
 
+        ! Initialize energy accumulator
         u_recipCoulomb_new = zero
-        number_of_kpoints = 0
 
-        do kx_idx = 0, ewald%kmax(1)
+        ! Loop over all precomputed reciprocal lattice vectors
+        do idx = 1, ewald%num_kvectors
 
             ! Compute form factor for current kx index: 1 for zero, 2 otherwise
-            form_factor =  FormFactor(kx_idx)
+            form_factor =  FormFactor(ewald%kvectors(idx)%kx)
 
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
+            ! Current k-vector indices
+            kx_idx = ewald%kvectors(idx)%kx
+            ky_idx = ewald%kvectors(idx)%ky
+            kz_idx = ewald%kvectors(idx)%kz
 
-                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
+            ! Atom charges in this residue
+            natoms = nb%atom_in_residue(residue_type)
+            charges = primary%atom_charges(residue_type, 1:natoms)
 
-                    ! Calculate normalized squared magnitude of k-vector
-                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
+            ! Compute total phase factors (new vs. old configuration)
+            phase_new = ewald%phase_factor_x(residue_type, molecule_index, 1:natoms, kx_idx) * &
+                        ewald%phase_factor_y(residue_type, molecule_index, 1:natoms, ky_idx) * &
+                        ewald%phase_factor_z(residue_type, molecule_index, 1:natoms, kz_idx)
 
-                    ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (.not. IsValidKVector(k_squared)) cycle
+            phase_old = ewald%phase_factor_x_old(1:natoms, kx_idx) * &
+                        ewald%phase_factor_y_old(1:natoms, ky_idx) * &
+                        ewald%phase_factor_z_old(1:natoms, kz_idx)
 
-                    number_of_kpoints = number_of_kpoints + 1 ! Increment Fourier component index
+            ! Update Fourier coefficient A(k)
+            ! A(k) ← A(k) + Σ q_i [ e^(i k·r_i,new) - e^(i k·r_i,old) ]
+            ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + sum(charges * (phase_new - phase_old))
 
-                    ! Update Fourier coefficient (recip_amplitude) for current k-vector
-                    ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude(number_of_kpoints) + &
-                        sum(primary%atom_charges(residue_type, 1:nb%atom_in_residue(residue_type)) * &
-                            (ewald%phase_factor_x(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), kx_idx) * &
-                            ewald%phase_factor_y(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), ky_idx) * &
-                            ewald%phase_factor_z(residue_type, molecule_index, 1:nb%atom_in_residue(residue_type), kz_idx) - &
-                            ewald%phase_factor_x_old(1:nb%atom_in_residue(residue_type), kx_idx) * &
-                            ewald%phase_factor_y_old(1:nb%atom_in_residue(residue_type), ky_idx) * &
-                            ewald%phase_factor_z_old(1:nb%atom_in_residue(residue_type), kz_idx)))
+            ! Compute squared modulus of the structure factor amplitude
+            amplitude_sq = real(ewald%recip_amplitude(idx) * conjg(ewald%recip_amplitude(idx)), kind=8)
 
-
-                    u_recipCoulomb_new = u_recipCoulomb_new + form_factor * ewald%recip_constants(number_of_kpoints) * &
-                                        real(ewald%recip_amplitude(number_of_kpoints) * &
-                                        conjg(ewald%recip_amplitude(number_of_kpoints)), KIND=8)
-                end do
-            end do
+            !----------------------------------------------
+            ! Accumulate reciprocal-space energy:
+            ! E_k = form_factor * W(k) * |A(k)|^2
+            ! where W(k) is the precomputed reciprocal constant
+            !----------------------------------------------
+            u_recipCoulomb_new = u_recipCoulomb_new + form_factor * ewald%recip_constants(idx) * amplitude_sq
         end do
 
+        !----------------------------------------------
+        ! Convert accumulated energy to physical units:
+        !----------------------------------------------
         u_recipCoulomb_new = u_recipCoulomb_new * EPS0_INV_eVA / KB_eVK * TWOPI / primary%volume
 
     end subroutine ComputeReciprocalEnergy_singlemol
 
-    ! Restores the previously saved Fourier components for a given molecule.
+    !--------------------------------------------------------------------
+    ! RestoreFourierState_singlemol
+    !
+    ! Restores the phase factors and reciprocal amplitudes of a single
+    ! molecule (or residue) from their saved "old" values. This is used
+    ! to roll back Fourier-space state after a rejected MC move.
+    !
+    ! Steps:
+    !   1. Restore phase factors (IKX, IKY, IKZ) for each atom in the residue.
+    !      - Handles both positive and negative indices for ky and kz.
+    !   2. Restore reciprocal amplitudes A(k) for all valid k-vectors
+    !      from their backup array.
+    !--------------------------------------------------------------------
     subroutine RestoreFourierState_singlemol(residue_type, molecule_index)
 
         implicit none
 
         ! Input arguments
-        integer, intent(in) :: residue_type
-        integer, intent(in) :: molecule_index
-
+        integer, intent(in) :: residue_type    ! Residue type identifier
+        integer, intent(in) :: molecule_index  ! Index of the molecule to restore
         ! Local variables
-        integer :: atom_index_1
-        integer :: kx_idx, ky_idx, kz_idx
-        integer :: number_of_kpoints ! Index counter for Fourier components
-        real(real64) :: k_squared
+        integer :: atom_index_1                ! Atom index within the residue
+        integer :: kx_idx, ky_idx, kz_idx      ! Reciprocal vector indices
+        integer :: idx                         ! Index over precomputed k-vectors
 
-        ! Restore IKX, IKY, IKZ from backups
+        ! Restore per-atom phase factors (IKX, IKY, IKZ)
         do atom_index_1 = 1, nb%atom_in_residue(residue_type)
 
             ! Restore IKX
@@ -508,25 +545,12 @@ contains
             end do
         end do
 
-        ! Restore recip_amplitude from recip_amplitude_old for all valid k-vectors
-        number_of_kpoints = 0
-        do kx_idx = 0, ewald%kmax(1)
-            do ky_idx = -ewald%kmax(2), ewald%kmax(2)
-                do kz_idx = -ewald%kmax(3), ewald%kmax(3)
-
-                    if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
-
-                    ! Compute normalized squared magnitude of k-vector
-                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
-
-                    ! Skip k=0 vector and vectors outside the unit sphere in normalized space
-                    if (.not. IsValidKVector(k_squared)) cycle
-
-                    number_of_kpoints = number_of_kpoints + 1
-                    ewald%recip_amplitude(number_of_kpoints) = ewald%recip_amplitude_old(number_of_kpoints)
-                
-                end do
-            end do
+        !------------------------------------------------------
+        ! Step 2: Restore reciprocal amplitudes A(k) from backup
+        !         Loop directly over precomputed valid k-vectors
+        !------------------------------------------------------
+        do idx = 1, ewald%num_kvectors
+            ewald%recip_amplitude(idx) = ewald%recip_amplitude_old(idx)
         end do
 
     end subroutine RestoreFourierState_singlemol

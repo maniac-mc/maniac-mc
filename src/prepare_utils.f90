@@ -29,7 +29,10 @@ contains
         !         method (reciprocal vectors, coefficients, etc.)
         call AllocateEwaldArray()
 
-        ! Step 4: Log the Ewald parameters and settings for
+        ! Step 4: Precompute k vectors
+        call PrecomputeKVectors()
+
+        ! Step 5: Log the Ewald parameters and settings for
         !         reproducibility and debugging
         call LogEwaldParameters()
 
@@ -117,9 +120,6 @@ contains
 
         ! Step 4: Compute Fourier indices
         call ComputeFourierIndices()
-
-        ! Step 5: Precompute k vectors
-        call PrecomputeKVectors()
 
     end subroutine SetupEwald
 
