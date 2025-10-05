@@ -7,23 +7,35 @@ module geometry_utils
 
 contains
 
+
     !-----------------------------------------------------------
     ! Subroutine: PrepareSimulationBox
-    ! Purpose: Initialize a simulation box by determining its
-    !          symmetry, computing geometric properties, and
-    !          calculating the inverse matrix for reciprocal-space use.
+    !
+    ! Initializes a simulation box for molecular simulations.
+    ! Steps performed:
+    !  1. Determine box symmetry (cubic, orthorhombic, triclinic)
+    !  2. Compute geometric properties: cell lengths, angles, volume
+    !  3. Calculate the inverse box matrix for reciprocal-space operations
     !-----------------------------------------------------------
     subroutine PrepareSimulationBox(box)
 
         implicit none
 
+        ! Input argument
         type(type_box), intent(inout) :: box
-
+        ! Local variable
         character(200) :: formatted_msg ! Buffer for formatted output messages
 
+        ! Step 1: Determine box symmetry
         call DetermineBoxSymmetry(box)
 
-        ! Print determined box type
+        ! Step 2: Compute geometric properties
+        call ComputeCellProperties(box)
+
+        ! Step 3: Compute inverse matrix for reciprocal-space operations
+        call ComputeInverse(box)
+
+        ! Log final results
         call LogMessage("====== Simulation preparation ======")
         call LogMessage("")
 
@@ -39,21 +51,19 @@ contains
                 call LogMessage(formatted_msg)
         end select
 
-        call ComputeCellProperties(box)
-
         write(formatted_msg, '(A, F20.4)') 'Cell volume (Å^3): ', box%volume
         call LogMessage(formatted_msg)
-
-        call ComputeInverse(box)
 
     end subroutine PrepareSimulationBox
 
     !-----------------------------------------------------------
     ! Subroutine: DetermineBoxSymmetry
-    ! Determine the symmetry type of a simulation box.
-    ! box type = 1 for cubic box,
-    ! box type = 2 for orthorhombic box,
-    ! box type = 3 for triclinic box.
+    !
+    ! Determines the symmetry type of a simulation box using
+    ! its 3x3 box matrix:
+    !   - Cubic : All diagonal elements equal, off-diagonal = 0
+    !   - Orthorhombic: Diagonal elements unequal, off-diagonal = 0
+    !   - Triclinic : At least one off-diagonal element ≠ 0
     !-----------------------------------------------------------
     subroutine DetermineBoxSymmetry(box)
 
@@ -61,20 +71,22 @@ contains
 
         ! Input parameters
         type(type_box), intent(inout) :: box
-
         ! Local variables
         real(real64), dimension(6) :: off_diag
 
         ! Collect off-diagonal elements
         off_diag = [box%matrix(1,2), box%matrix(1,3), &
-            box%matrix(2,1), box%matrix(2,3), &
-            box%matrix(3,1), box%matrix(3,2)]
+                    box%matrix(2,1), box%matrix(2,3), &
+                    box%matrix(3,1), box%matrix(3,2)]
 
-        if (maxval(abs(off_diag)) > 1.0D-12) then
+        ! Check for triclinic (any off-diagonal > tolerance)
+        if (maxval(abs(off_diag)) > error) then
             box%type = 3
-        else if (abs(box%matrix(1,1) - box%matrix(2,2)) > 1.0D-12 .or. &
-                 abs(box%matrix(1,1) - box%matrix(3,3)) > 1.0D-12) then
+        ! Check for orthorhombic (unequal diagonals)
+        else if (abs(box%matrix(1,1) - box%matrix(2,2)) > error .or. &
+                 abs(box%matrix(1,1) - box%matrix(3,3)) > error) then
             box%type = 2
+        ! Otherwise, cubic
         else
             box%type = 1
         end if
@@ -83,8 +95,17 @@ contains
 
     !-----------------------------------------------------------
     ! Subroutine: ComputeCellProperties
-    ! Purpose: Calculate lengths, cosines of angles,
-    !          and perpendicular widths of a simulation cell.
+    !
+    ! Computes geometric properties of the simulation box:
+    !  - Lengths of cell vectors
+    !  - Cosines of angles between vectors
+    !  - Cell volume
+    !  - Perpendicular widths along each axis
+    !
+    ! Uses standard vector operations:
+    !   - |a| = sqrt(a·a)
+    !   - cosθ = (a·b) / (|a||b|)
+    !   - volume = a · (b × c)
     !-----------------------------------------------------------
     subroutine ComputeCellProperties(box)
 
@@ -92,7 +113,6 @@ contains
 
         ! Input parameters
         type(type_box), intent(inout) :: box
-
         ! Local variables
         real(real64), dimension(3) :: vec_lengths ! Lengths of the three cell vectors
         real(real64), dimension(3) :: axb ! Cross product of vector a and b
@@ -135,8 +155,14 @@ contains
 
     !-----------------------------------------------------------
     ! Subroutine: ApplyPBC
-    ! Wraps a 3D position into the simulation box
-    ! Works for orthogonal or triclinic boxes with any lower bounds
+    !
+    ! Wraps a Cartesian position into the simulation box using
+    ! periodic boundary conditions (PBC). Supports orthogonal
+    ! and triclinic boxes.
+    !
+    ! Orthogonal: x' = lower_bound + mod(x - lower_bound, L)
+    ! Triclinic : fractional coordinates s = H^{-1}·(r - r0),
+    !             wrap s into [0,1), then r' = r0 + H·s
     !-----------------------------------------------------------
     subroutine ApplyPBC(pos, box)
 
@@ -195,9 +221,11 @@ contains
 
     !-----------------------------------------------------------
     ! Subroutine: WrapIntoBox
-    ! Ensures pos (x, y, z) are inside the simulation box
-    ! Convention: [-L/2, L/2] for cubic/orthorhombic,
-    !             [-0.5, 0.5] in fractional space for triclinic
+    !
+    ! Ensures a position is inside the simulation box using the
+    ! following conventions:
+    !  - Cubic/Orthorhombic: [-L/2, L/2]
+    !  - Triclinic (fractional space): [-0.5, 0.5)
     !-----------------------------------------------------------
     subroutine WrapIntoBox(pos, box)
 
@@ -239,9 +267,12 @@ contains
     end subroutine WrapIntoBox
 
     !----------------------------------------------------------------------------
-    ! subroutine ComputeInverse
-    ! Utility for computing the inverse and determinant of a 3×3 box matrix
-    ! used in reciprocal space calculations
+    ! Subroutine: ComputeInverse
+    !
+    ! Computes the inverse and determinant of a 3x3 box matrix.
+    ! Uses the adjugate (cofactor transpose) method:
+    !   H^{-1} = adj(H) / det(H)
+    ! Also checks for near-zero determinant to avoid numerical issues.
     !----------------------------------------------------------------------------
     subroutine ComputeInverse(box)
 
@@ -251,15 +282,10 @@ contains
         type(type_box), intent(inout) :: box
 
         ! Local variables
-        real(real64), dimension(3,3) :: adjugate ! Adjugate (cofactor transpose) matrix of box_mat
-        real(real64) :: reciprocal ! Reciprocal of the determinant of box_mat
+        real(real64), dimension(3,3) :: adjugate    ! Adjugate (cofactor transpose) matrix of box_mat
+        real(real64) :: reciprocal                  ! Reciprocal of the determinant of box_mat
         real(real64), dimension(3) :: a, b
-        integer :: i, j ! Loop indices for matrix element iteration
-        character(200) :: formatted_msg ! buffer for logging
-
-        ! Numerical thresholds
-        real(real64), parameter :: tol_det   = 1.0D-15  ! determinant tolerance
-        real(real64), parameter :: tiny_val  = tiny(1.0_real64)  ! smallest safe value
+        integer :: i, j                             ! Loop indices for matrix element iteration
 
         ! Compute the adjugate (cofactor transpose) using cross products
         ! First column of adjugate
@@ -281,16 +307,14 @@ contains
         box%determinant = dot_product(box%matrix(:,1), adjugate(:,1))
 
         ! Check for denormal/underflow values in determinant
-        if (abs(box%determinant) < tiny_val) then
-            write(formatted_msg,'(A,1PE12.4)') "Error: Determinant fell into denormal/underflow range. det = ", box%determinant
-            call LogMessage(formatted_msg)
-            stop 1
+        if (abs(box%determinant) < one) then
+            call AbortRun("Error: Determinant fell into denormal/underflow range")
         end if
 
         ! Calculate reciprocal of determinant if non-zero
-        reciprocal = 0.0_real64
-        if (abs(box%determinant) > tol_det) then  ! small tolerance to avoid near-zero
-            reciprocal = 1.0_real64 / box%determinant
+        reciprocal = zero
+        if (abs(box%determinant) > error) then  ! small tolerance to avoid near-zero
+            reciprocal = one / box%determinant
         else
             ! Handle singular matrix case if needed, e.g. print error or return
             call WarnUser("Determinant is zero or near zero, inverse not computed.")
@@ -304,21 +328,7 @@ contains
             end do
         end do
 
-        return
     end subroutine ComputeInverse
-
-    ! Compute the cross product of two 3D vectors a and b
-    function CrossProduct(a, b) result(c)
-
-        real(real64), intent(in) :: a(3), b(3) ! Input vectors
-        real(real64) :: c(3) ! Resulting cross product vector
-
-        ! Cross product components
-        c(1) = a(2)*b(3) - a(3)*b(2) ! x-component
-        c(2) = a(3)*b(1) - a(1)*b(3) ! y-component
-        c(3) = a(1)*b(2) - a(2)*b(1) ! z-component
-    end function CrossProduct
-
 
     !---------------------------------------------------------------------
     !> Compute the minimum-image distance between two atoms in a periodic box
