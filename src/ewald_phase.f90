@@ -11,30 +11,57 @@ module ewald_phase
 contains
 
     !--------------------------------------------------------------------
-    ! Computes the phase vector for a single atom in reciprocal space.
+    ! ComputeAtomPhase
     !
-    !   For Ewald reciprocal-space calculations, the phase for each axis is
-    !   computed as the dot product of the atom position with the corresponding
-    !   reciprocal lattice vector, multiplied by 2π. This gives the argument
-    !   for the complex exponential exp(i k · r) along each axis.
+    ! Purpose:
+    !   Computes the phase vector (k · r) for a single atom in reciprocal space.
+    !
+    ! Mathematical Formulation:
+    !   For each reciprocal direction i ∈ {1,2,3}:
+    !
+    !       phase(i) = 2π * Σ_j [ reciprocal_box(j,i) * atom_pos(j) ]
+    !
+    !   or in vector form:
+    !
+    !       phase = 2π * (reciprocal_boxᵀ · atom_pos)
+    !
+    ! Arguments:
+    !   atom_pos        [in]  : Real(3) position of the atom in real space.
+    !   reciprocal_box  [in]  : Real(3,3) reciprocal lattice vectors (columns).
+    !
+    ! Returns:
+    !   phase(3) : Real(3) phase vector (in radians) used in exp(i * k · r)
+    !
+    ! Notes:
+    !   This produces the phase argument (in radians) for the exponential term
+    !   exp(i * k · r) used in the Ewald summation.
+    !   This function is pure and side-effect-free. It can be safely used in
+    !   parallel sections or array expressions.
     !--------------------------------------------------------------------
-    pure subroutine ComputeAtomPhase(atom_pos, reciprocal_box, phase)
+    pure function ComputeAtomPhase(atom_pos, reciprocal_box) result(phase)
 
-        real(real64), intent(in) :: atom_pos(3)
-        real(real64), intent(in) :: reciprocal_box(3,3)
-        real(real64), intent(out) :: phase(3)
+        ! Input arguments
+        real(real64), intent(in)  :: atom_pos(3)         ! Cartesian position of the atom in real space (x, y, z)
+        real(real64), intent(in)  :: reciprocal_box(3,3) ! Reciprocal lattice vectors as columns of a 3×3 matrix
 
-        integer :: i, j
+        ! Function result
+        real(real64) :: phase(3)                        ! Returned phase components (2π * k·r)
+
+        ! Local variables
+        integer :: i, j                                 ! Loop indices over spatial dimensions
 
         do i = 1, 3
             phase(i) = zero
             do j = 1, 3
+                ! Accumulate dot product of atom position (r_j)
+                ! with i-th reciprocal lattice vector (k_i = column i of reciprocal_box)
                 phase(i) = phase(i) + reciprocal_box(j,i) * atom_pos(j)
             end do
+            ! Multiply by 2π to convert to the proper phase angle (k·r in radians)
             phase(i) = TWOPI * phase(i)
         end do
 
-    end subroutine ComputeAtomPhase
+    end function ComputeAtomPhase
 
     !--------------------------------------------------------------------
     ! Computes 1D complex exponential phase factors along a single axis
@@ -72,58 +99,6 @@ contains
         end do
 
     end subroutine ComputePhaseFactors1D
-
-    ! Precompute complex exponential factors to be used repeatedly in
-    ! reciprocal-space calculations.
-    subroutine SingleMolFourierTerms(residue_type, molecule_index)
-
-        implicit none
-
-        ! Input arguments
-        integer, intent(in) :: residue_type
-        integer, intent(in) :: molecule_index
-
-        ! Local variables
-        integer :: atom_index_1                 ! Atom index
-        real(real64), dimension(3) :: atom      ! Atom coordinates in real space
-        real(real64), dimension(3) :: phase     ! Phase factors for Fourier terms
-        integer :: kmax_x, kmax_y, kmax_z       ! max k indices for each direction
-        complex(real64), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
-
-        ! Determine kmax for each direction
-        kmax_x = ewald%kmax(1)
-        kmax_y = ewald%kmax(2)
-        kmax_z = ewald%kmax(3)
-
-        ! Allocate temporary arrays once
-        allocate(temp_x(-kmax_x:kmax_x))
-        allocate(temp_y(-kmax_y:kmax_y))
-        allocate(temp_z(-kmax_z:kmax_z))
-
-        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
-
-            atom = primary%mol_com(:, residue_type, molecule_index) + &
-                primary%site_offset(:, residue_type, molecule_index, atom_index_1)
-
-            ! Compute the phase vector components as the dot product of the atom position
-            ! with each reciprocal lattice vector (columns of reciprocal_box), scaled by 2π.
-            call ComputeAtomPhase(atom, primary%reciprocal, phase)
-
-            ! Precompute the complex exponential (phase) factors for this atom
-            ! along each Cartesian direction. These factors will be used repeatedly
-            ! in the reciprocal-space sum for the Ewald energy.
-            call ComputePhaseFactors1D(temp_x, phase(1), kmax_x)
-            ewald%phase_factor_x(residue_type, molecule_index, atom_index_1, :) = temp_x
-
-            call ComputePhaseFactors1D(temp_y, phase(2), kmax_y)
-            ewald%phase_factor_y(residue_type, molecule_index, atom_index_1, :) = temp_y
-
-            call ComputePhaseFactors1D(temp_z, phase(3), kmax_z)
-            ewald%phase_factor_z(residue_type, molecule_index, atom_index_1, :) = temp_z
-
-        end do
-
-    end subroutine SingleMolFourierTerms
 
     !--------------------------------------------------------------------
     ! SaveSingleMolFourierTerms
@@ -329,5 +304,57 @@ contains
         end do
 
     end subroutine ComputeAllFourierTerms
+
+    ! Precompute complex exponential factors to be used repeatedly in
+    ! reciprocal-space calculations.
+    subroutine SingleMolFourierTerms(residue_type, molecule_index)
+
+        implicit none
+
+        ! Input arguments
+        integer, intent(in) :: residue_type
+        integer, intent(in) :: molecule_index
+
+        ! Local variables
+        integer :: atom_index_1                 ! Atom index
+        real(real64), dimension(3) :: atom      ! Atom coordinates in real space
+        real(real64), dimension(3) :: phase     ! Phase factors for Fourier terms
+        integer :: kmax_x, kmax_y, kmax_z       ! Max k indices for each direction
+        complex(real64), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
+
+        ! Determine kmax for each direction
+        kmax_x = ewald%kmax(1)
+        kmax_y = ewald%kmax(2)
+        kmax_z = ewald%kmax(3)
+
+        ! Allocate temporary arrays once
+        allocate(temp_x(-kmax_x:kmax_x))
+        allocate(temp_y(-kmax_y:kmax_y))
+        allocate(temp_z(-kmax_z:kmax_z))
+
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
+
+            atom = primary%mol_com(:, residue_type, molecule_index) + &
+                primary%site_offset(:, residue_type, molecule_index, atom_index_1)
+
+            ! Compute the phase vector components as the dot product of the atom position
+            ! with each reciprocal lattice vector (columns of reciprocal_box), scaled by 2π.
+            call ComputeAtomPhase(atom, primary%reciprocal, phase)
+
+            ! Precompute the complex exponential (phase) factors for this atom
+            ! along each Cartesian direction. These factors will be used repeatedly
+            ! in the reciprocal-space sum for the Ewald energy.
+            call ComputePhaseFactors1D(temp_x, phase(1), kmax_x)
+            ewald%phase_factor_x(residue_type, molecule_index, atom_index_1, :) = temp_x
+
+            call ComputePhaseFactors1D(temp_y, phase(2), kmax_y)
+            ewald%phase_factor_y(residue_type, molecule_index, atom_index_1, :) = temp_y
+
+            call ComputePhaseFactors1D(temp_z, phase(3), kmax_z)
+            ewald%phase_factor_z(residue_type, molecule_index, atom_index_1, :) = temp_z
+
+        end do
+
+    end subroutine SingleMolFourierTerms
 
 end module ewald_phase
