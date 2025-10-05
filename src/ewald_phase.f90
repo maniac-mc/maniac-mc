@@ -281,7 +281,6 @@ contains
         integer, intent(in) :: residue_type
         integer, intent(in) :: index_1
         integer, intent(in) :: index_2
-
         ! Local variables
         integer :: kx_idx, ky_idx, kz_idx
         integer :: atom_index_1
@@ -342,6 +341,7 @@ contains
 
         implicit none
 
+        ! Local variables
         integer :: residue_type_1
         integer :: molecule_index_1
 
@@ -367,8 +367,8 @@ contains
     !   for all k-indices along each Cartesian direction for a given molecule.
     !
     ! Arguments:
-    !   residue_type   [in] : Integer residue type identifier.
-    !   molecule_index [in] : Integer molecule index within this residue type.
+    !   res_type [in] : Integer residue type identifier.
+    !   mol_index [in] : Integer molecule index within this residue type.
     !
     ! Description:
     !   For each atom in the molecule:
@@ -380,14 +380,13 @@ contains
     !   These precomputed 1D phase factors are used to construct the full
     !   reciprocal-space structure factors efficiently during the Ewald sum.
     !--------------------------------------------------------------------
-    subroutine SingleMolFourierTerms(residue_type, molecule_index)
+    subroutine SingleMolFourierTerms(res_type, mol_index)
 
         implicit none
 
         ! Input arguments
-        integer, intent(in) :: residue_type
-        integer, intent(in) :: molecule_index
-
+        integer, intent(in) :: res_type
+        integer, intent(in) :: mol_index
         ! Local variables
         integer :: atom_index_1                 ! Atom index
         real(real64), dimension(3) :: atom      ! Atom coordinates in real space
@@ -405,10 +404,10 @@ contains
         allocate(temp_y(-kmax_y:kmax_y))
         allocate(temp_z(-kmax_z:kmax_z))
 
-        do atom_index_1 = 1, nb%atom_in_residue(residue_type)
+        do atom_index_1 = 1, nb%atom_in_residue(res_type)
 
-            atom = primary%mol_com(:, residue_type, molecule_index) + &
-                primary%site_offset(:, residue_type, molecule_index, atom_index_1)
+            atom = primary%mol_com(:, res_type, mol_index) + &
+                primary%site_offset(:, res_type, mol_index, atom_index_1)
 
             ! Compute the phase vector components as the dot product of the atom position
             ! with each reciprocal lattice vector (columns of reciprocal_box), scaled by 2π.
@@ -419,13 +418,13 @@ contains
             ! along each Cartesian direction. These factors will be used repeatedly
             ! in the reciprocal-space sum for the Ewald energy.
             call ComputePhaseFactors1D(temp_x, phase(1), kmax_x)
-            ewald%phase_factor_x(residue_type, molecule_index, atom_index_1, :) = temp_x
+            ewald%phase_factor_x(res_type, mol_index, atom_index_1, :) = temp_x
 
             call ComputePhaseFactors1D(temp_y, phase(2), kmax_y)
-            ewald%phase_factor_y(residue_type, molecule_index, atom_index_1, :) = temp_y
+            ewald%phase_factor_y(res_type, mol_index, atom_index_1, :) = temp_y
 
             call ComputePhaseFactors1D(temp_z, phase(3), kmax_z)
-            ewald%phase_factor_z(residue_type, molecule_index, atom_index_1, :) = temp_z
+            ewald%phase_factor_z(res_type, mol_index, atom_index_1, :) = temp_z
 
         end do
 

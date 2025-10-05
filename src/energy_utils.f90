@@ -26,12 +26,59 @@ contains
         call ComputePairwiseEnergy(box)
         call ComputeEwaldSelf()
         call ComputeEwaldRecip()
+        call ComputeTotalIntraResidueCoulombEnergy()
 
         ! Calculate total energy
         energy%total = energy%recip_coulomb + energy%non_coulomb + energy%coulomb + &
             energy%ewald_self + energy%intra_coulomb
 
     end subroutine ComputeSystemEnergy
+
+    !------------------------------------------------------------------------------
+    ! Subroutine: ComputeTotalIntraResidueCoulombEnergy
+    !
+    ! Purpose:
+    !   Loops over all active residue types and their molecules, computes the
+    !   intra-residue Coulomb energy for each molecule, and accumulates it into
+    !   the total intra-residue energy in the simulation.
+    !
+    ! Mathematical expression:
+    !   E_intra_total = Σ_{residues} Σ_{molecules} E_intra(molecule)
+    !   where E_intra(molecule) is computed by
+    !     ComputeIntraResidueRealCoulombEnergySingleMol
+    !
+    ! Notes:
+    !   - Skips inactive residues (input%is_active(residue_type) == 0)
+    !   - Uses the existing subroutine ComputeIntraResidueRealCoulombEnergySingleMol
+    !------------------------------------------------------------------------------
+
+    subroutine ComputeTotalIntraResidueCoulombEnergy()
+    
+        implicit none
+
+        integer :: residue_type_1
+        integer :: molecule_index_1
+        real(real64) :: e_intra_coulomb
+
+        ! Initialize total intra-residue Coulomb energy
+        energy%intra_coulomb = zero
+
+        ! Loop over all residue types
+        do residue_type_1 = 1, nb%type_residue
+            ! Skip inactive residues
+            if (input%is_active(residue_type_1) == 1) then
+                ! Loop over all molecules of this residue type
+                do molecule_index_1 = 1, primary%num_residues(residue_type_1)
+                    ! Compute intra-residue Coulomb energy for this molecule
+                    call ComputeIntraResidueRealCoulombEnergySingleMol(residue_type_1, molecule_index_1, e_intra_coulomb)
+
+                    ! Accumulate into total intra-residue energy
+                    energy%intra_coulomb = energy%intra_coulomb + e_intra_coulomb
+                end do
+            end if
+        end do
+
+    end subroutine ComputeTotalIntraResidueCoulombEnergy
 
     subroutine ComputePairwiseEnergy(box)
 
@@ -134,7 +181,8 @@ contains
             end do
         end do
 
-        return
+        ! Re-scale energy
+        e_coulomb = e_coulomb * EPS0_INV_eVA / KB_eVK
 
     end subroutine SingleMolPairwiseEnergy
 
@@ -186,22 +234,22 @@ contains
         ! Local variable
         real(real64) :: energy   ! Computed Coulomb energy contribution (unscaled)
 
+        ! Initialize energy
+        energy = zero
+
         ! Skip negligible charges
-        if ((abs(q1) < error) .or. (abs(q2) < error)) then
-            energy = zero
+        if ((abs(q1) < error) .or. (abs(q2) < error)) return
+
+        ! Avoid division by zero
+        if (r < error) return
+
+        ! Compute Coulomb energy (tabulated or direct)
+        if (use_table .and. erfc_r_table%initialized) then
+            energy = q1 * q2 * LookupTabulated(erfc_r_table, r)
         else
-
-            ! Compute Coulomb energy either with table or directly
-            if (use_table .and. erfc_r_table%initialized) then
-                energy = q1 * q2 * LookupTabulated(erfc_r_table, r)
-            else
-                ! Direct-space Coulomb potential with Ewald damping:
-                ! V(r) = (q1*q2) * erfc(alpha * r) / r
-                energy = q1 * q2 * (erfc(ewald%alpha * r)) / r
-            end if
-
-            ! Re-scale energy
-            energy = energy * EPS0_INV_eVA / KB_eVK
+            ! Direct-space Coulomb potential with Ewald damping
+            ! V(r) = (q1*q2) * erfc(alpha * r) / r
+            energy = q1 * q2 * erfc(ewald%alpha * r) / r
         end if
 
     end function CoulombEnergy
@@ -379,7 +427,7 @@ contains
                         charge_1 = primary%atom_charges(residue_type_1, atom_index_1)
                         charge_2 = primary%atom_charges(residue_type_2, atom_index_2)
 
-                        if ((abs(charge_1) < error) .or. (abs(charge_2) < one)) cycle
+                        if ((abs(charge_1) < error) .or. (abs(charge_2) < error)) cycle
 
                         e_coulomb = e_coulomb + charge_1 * charge_2 * (erfc(ewald%alpha * distance)) / distance
 

@@ -27,6 +27,13 @@ jobs:
       - name: Run build.sh
         run: ./build.sh
 
-      - name: Run tests
+      - name: Run reader tests
         working-directory: tests/readers/data
         run: ./run-test.sh
+
+      - name: Run all integration tests
+        run: |
+          for testdir in tests/integration/energy/*; do
+            echo "Running test in $testdir"
+            (cd "$testdir" && ./run-test.sh)
+          done
