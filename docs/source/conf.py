@@ -19,7 +19,6 @@ print("Breathe XML path:", breathe_projects["ManiaC"])
 breathe_default_project = "ManiaC"
 
 # -- General configuration ---------------------------------------------------
-
 extensions = [
     'breathe',
     'sphinx.ext.autodoc',
@@ -30,6 +29,5 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 # -- Options for HTML output -------------------------------------------------
-
-html_theme = 'alabaster'
+html_theme = 'furo'
 html_static_path = ['_static']

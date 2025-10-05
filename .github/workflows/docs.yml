@@ -35,7 +35,7 @@ jobs:
       - name: Install Python packages for Sphinx
         run: |
           pip install --upgrade pip
-          pip install sphinx sphinx_rtd_theme breathe
+          pip install sphinx sphinx_rtd_theme breathe furo
 
       - name: Build documentation
         working-directory: docs
