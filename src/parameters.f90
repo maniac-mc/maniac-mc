@@ -39,6 +39,6 @@ module parameters
 
     ! In module parameters
     integer, parameter :: TABULATED_POINTS = 5000  ! Default number of points in tabulated functions
-    logical, parameter :: use_table = .true.        ! To fix: make it an input parameter for user
+    logical, parameter :: use_table = .false.        ! To fix: make it an input parameter for user
 
 end module parameters
