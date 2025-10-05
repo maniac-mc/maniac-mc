@@ -3,6 +3,9 @@ name: Build Documentation
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main ]
 
@@ -35,8 +38,9 @@ jobs:
         working-directory: docs
         run: make html
 
-      - name: Upload built docs as artifact
-        uses: actions/upload-artifact@v4
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: documentation-html
-          path: docs/build/html
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/build/html
