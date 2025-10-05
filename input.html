@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Input Files &#8212; MANIAC-MC v0.1.2-alpha documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=a4396fb1"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Build and Run" href="build.html" />
+    <link rel="prev" title="MANIAC-MC documentation" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="input-files">
+<h1>Input Files<a class="headerlink" href="#input-files" title="Link to this heading">¶</a></h1>
+<p>This page describes the structure and parameters of the input file
+used by the <strong>MANIAC</strong> Monte Carlo simulation program. Each line in the file
+specifies a parameter and its value. Lines starting with <code class="docutils literal notranslate"><span class="pre">#</span></code> are comments
+and are ignored by the program.</p>
+<section id="minimal-example">
+<h2>Minimal Example<a class="headerlink" href="#minimal-example" title="Link to this heading">¶</a></h2>
+<p>Below is a minimal example for a system with two residue types: water molecules
+(the active species) and ZIF-8 (the rigid host framework).</p>
+<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span># Input for maniac program
+
+# Generic parameters
+nb_block 200                     # Number of Monte Carlo blocks
+nb_step 1000                     # Number of Monte Carlo steps per block
+temperature 300                  # Simulation temperature (K)
+
+# Electrostatic interactions
+ewald_tolerance 1e-5             # Ewald convergence tolerance (smaller = more accurate, slower)
+real_space_cutoff 17             # Real-space cutoff distance for electrostatics (Å)
+
+# Monte Carlo moves
+translation_step 1               # Maximum translational displacement (Å)
+rotation_step_angle 0.685        # Maximum rotation angle (radians)
+recalibrate_moves true           # Automatically tune step sizes to keep acceptance ~optimal
+
+translation_proba 0.4            # Probability of attempting a translation move
+rotation_proba 0.4               # Probability of attempting a rotation move
+insertion_deletion_proba 0.2     # Probability of attempting insertion or deletion of molecules
+
+# Define residue composition and activity
+begin_residue
+name wat                       # Residue name: water
+state actif                    # &quot;actif&quot; = subject to MC moves
+fugacity 10000                 # Reservoir fugacity (driving force for adsorption)
+types 1 2 3                    # Atom type IDs for this residue
+names Ow Mw Hw                 # Atom names: oxygen, virtual site, hydrogens
+nb-atoms 4                     # Number of atoms in this residue
+end_residue
+
+begin_residue
+name zif                       # Residue name: ZIF-8 framework
+state inactif                  # &quot;inactif&quot; = rigid, no MC moves applied
+types 4 5 6 7 8 9 10 11        # Atom type IDs for the framework
+names Zn C1 C2 H1 C3 H2 H3 N   # Atom names in ZIF-8 (Zn, carbons, hydrogens, nitrogen)
+nb-atoms 2208                  # Total number of atoms in the framework
+end_residue
+</pre></div>
+</div>
+<p>This example corresponds to water adsorption in a rigid ZIF-8:</p>
+<ul>
+<li><p>The first residue block defines a TIP4P water molecule (<code class="docutils literal notranslate"><span class="pre">wat</span></code>).
+- It is marked as <strong>actif</strong>, meaning Monte Carlo moves (translation,</p>
+<blockquote>
+<div><p>rotation, insertion, deletion) will be attempted.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>A high fugacity (<code class="docutils literal notranslate"><span class="pre">10000</span> <span class="pre">atm</span></code>) is used to mimics a rapid adsorption.</p></li>
+<li><p>Atom types (1 2 3) and names (Ow Mw Hw) correspond to the oxygen (Ow),
+a virtual site (Mw) and hydrogen atoms (Hw),</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb-atoms</span> <span class="pre">4</span></code> specifies the number of atoms in a molecule.</p></li>
+</ul>
+</li>
+<li><p>The second residue block defines the <strong>ZIF-8 framework</strong> (<code class="docutils literal notranslate"><span class="pre">zif</span></code>).
+- It is marked as <strong>inactif</strong>, so it remains rigid and is not subject to Monte</p>
+<blockquote>
+<div><p>Carlo moves.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>Atom types and names (Zn C1 C2 H1 C3 H2 H3 N) represent the crystallographic
+composition of ZIF-8.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nb-atoms</span> <span class="pre">2208</span></code> specifies the number of atoms in the framework.</p></li>
+</ul>
+</li>
+</ul>
+<p>The probabilities for translation, rotation, big moves, and insertion/deletion
+(<cite>translation_proba</cite>, <cite>rotation_proba</cite>, <cite>big_move_proba</cite>,
+<cite>insertion_deletion_proba</cite>) do not need to sum to 1. When all probabilities are
+provided, <strong>MANIAC</strong> will automatically rescale them so that their total equals 1.
+This ensures that at each Monte Carlo step, one move is chosen according to the
+relative weights of the provided probabilities.</p>
+</section>
+<section id="simulation-control">
+<h2>Simulation Control<a class="headerlink" href="#simulation-control" title="Link to this heading">¶</a></h2>
+<section id="number-of-blocks">
+<h3>Number of blocks<a class="headerlink" href="#number-of-blocks" title="Link to this heading">¶</a></h3>
+<p><strong>nb_block</strong> (Integer, required)
+Number of Monte Carlo <strong>blocks</strong> to run.
+A block is a group of MC steps used for statistical averaging.</p>
+</section>
+<section id="number-of-steps-per-block">
+<h3>Number of steps per block<a class="headerlink" href="#number-of-steps-per-block" title="Link to this heading">¶</a></h3>
+<p><strong>nb_step</strong> (Integer, required)
+Number of Monte Carlo <strong>steps</strong> per block.</p>
+</section>
+<section id="simulation-temperature">
+<h3>Simulation temperature<a class="headerlink" href="#simulation-temperature" title="Link to this heading">¶</a></h3>
+<p><strong>temperature</strong> (Float, required, units: K)
+Target simulation temperature.</p>
+</section>
+<section id="random-seed">
+<h3>Random seed<a class="headerlink" href="#random-seed" title="Link to this heading">¶</a></h3>
+<p><strong>seed</strong> (Integer, optional, default: random)
+Initial seed for the random number generator. Using the same seed
+will reproduce identical simulation trajectories.
+If omitted, the seed is chosen randomly.</p>
+</section>
+</section>
+<section id="electrostatics">
+<h2>Electrostatics<a class="headerlink" href="#electrostatics" title="Link to this heading">¶</a></h2>
+<section id="ewald-summation-tolerance">
+<h3>Ewald summation tolerance<a class="headerlink" href="#ewald-summation-tolerance" title="Link to this heading">¶</a></h3>
+<p><strong>ewald_tolerance</strong> (Float, optional, default: 1e-6)
+Convergence tolerance for Ewald summation of electrostatic interactions.
+Smaller values increase accuracy but increase cost.</p>
+</section>
+<section id="real-space-cutoff-distance">
+<h3>Real-space cutoff distance<a class="headerlink" href="#real-space-cutoff-distance" title="Link to this heading">¶</a></h3>
+<p><strong>real_space_cutoff</strong> (Float, optional, default: 10 Å)
+Cutoff distance in real space for electrostatics.</p>
+</section>
+</section>
+<section id="monte-carlo-moves">
+<h2>Monte Carlo Moves<a class="headerlink" href="#monte-carlo-moves" title="Link to this heading">¶</a></h2>
+<section id="maximum-translation-step">
+<h3>Maximum translation step<a class="headerlink" href="#maximum-translation-step" title="Link to this heading">¶</a></h3>
+<p><strong>translation_step</strong> (Float, required, units: Å)
+Maximum translational displacement allowed in a move.</p>
+</section>
+<section id="maximum-rotation-angle">
+<h3>Maximum rotation angle<a class="headerlink" href="#maximum-rotation-angle" title="Link to this heading">¶</a></h3>
+<p><strong>rotation_step_angle</strong> (Float, required, units: radians)
+Maximum rotation angle allowed in a move.</p>
+</section>
+<section id="recalibrate-moves-automatically">
+<h3>Recalibrate moves automatically<a class="headerlink" href="#recalibrate-moves-automatically" title="Link to this heading">¶</a></h3>
+<p><strong>recalibrate_moves</strong> (Boolean, optional, default: false)
+If true, automatically adjust step sizes to maintain acceptance ratios.</p>
+</section>
+<section id="move-probabilities">
+<h3>Move probabilities<a class="headerlink" href="#move-probabilities" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>translation_proba</strong> (Float, optional, default: 0.0)
+Probability of attempting a translation move.</p></li>
+<li><p><strong>rotation_proba</strong> (Float, optional, default: 0.0)
+Probability of attempting a rotation move.</p></li>
+<li><p><strong>big_move_proba</strong> (Float, optional, default: 0.0)
+Probability of attempting a “big” displacement move.</p></li>
+<li><p><strong>insertion_deletion_proba</strong> (Float, optional, default: 0.0)
+Probability of attempting a molecule insertion or deletion.</p></li>
+</ul>
+</section>
+</section>
+<section id="residue-definition">
+<h2>Residue Definition<a class="headerlink" href="#residue-definition" title="Link to this heading">¶</a></h2>
+<p>A residue block defines the composition and properties of each molecule type.
+Each block starts with <code class="docutils literal notranslate"><span class="pre">begin_residue</span></code> and ends with <code class="docutils literal notranslate"><span class="pre">end_residue</span></code>.</p>
+<p>Residue parameters:
+- <strong>name</strong> (String, required): Residue name (e.g., <code class="docutils literal notranslate"><span class="pre">CO2</span></code>, <code class="docutils literal notranslate"><span class="pre">H2O</span></code>, <code class="docutils literal notranslate"><span class="pre">MOF</span></code>).
+- <strong>state</strong> (String, required): <code class="docutils literal notranslate"><span class="pre">actif</span></code> (active, subject to MC moves) or <code class="docutils literal notranslate"><span class="pre">inactif</span></code> (rigid).
+- <strong>fugacity</strong> (Float, optional, units: bar): Chemical potential of the residue.
+- <strong>types</strong> (List of Integers, required): Atom type IDs for atoms in the residue.
+- <strong>names</strong> (List of Strings, required): Atom names corresponding to atom types.
+- <strong>nb-atoms</strong> (Integer, required): Number of atoms in one residue.</p>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Parameter order is not strict.</p></li>
+<li><p>Each residue must be fully enclosed between <code class="docutils literal notranslate"><span class="pre">begin_residue</span></code> and <code class="docutils literal notranslate"><span class="pre">end_residue</span></code>.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">MANIAC-MC</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Input Files</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#minimal-example">Minimal Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#simulation-control">Simulation Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#electrostatics">Electrostatics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#monte-carlo-moves">Monte Carlo Moves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#residue-definition">Residue Definition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="build.html">Build and Run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="unit.html">Unit System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">MANIAC-MC documentation</a></li>
+      <li>Next: <a href="build.html" title="next chapter">Build and Run</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Simon Gravelle.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/input.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
