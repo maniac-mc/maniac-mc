@@ -225,7 +225,7 @@ contains
 
         ! Step 1: Precompute weighting coefficients that depend only on |k|-vectors.
         ! These account for the Gaussian charge screening used in the Ewald method.
-        call InitializeReciprocalWeights()
+        call ComputeReciprocalWeights()
 
         ! Step 2: Build Fourier terms e^(i·k·r) for every atom inthe system.
         ! This avoids recomputing expensive exponentials during the k-sum.
