@@ -261,7 +261,7 @@ contains
         write(UNIT_DATA, *) box%num_impropers, " impropers"
         write(UNIT_DATA, *) box%num_impropertypes, " improper types"
         write(UNIT_DATA, *)
-    
+
         ! X bounds
 
         write(UNIT_DATA, '(2(F15.8,1X))', ADVANCE='NO') box%bounds(1,1), box%bounds(1,2)
@@ -313,7 +313,7 @@ contains
                     ! Only wrap atom of inative species (i.e. leave active molecules continuous at the pbc)
                     if (input%is_active(i) == 0) then
                         call WrapIntoBox(pos, box)
-                    end if 
+                    end if
 
                     write(UNIT_DATA, '(I6,1X,I6,1X,I4,1X,F12.8,3(1X,F12.7))') &
                         atom_id, mol_id, atom_type, charge, pos(1), pos(2), pos(3)

@@ -83,7 +83,7 @@ contains
     end subroutine DeleteMolecule
 
     ! subroutine SaveMoleculeState(residue_type, molecule_index, mol_com_old, site_offset_old)
-    
+
     !     implicit none
 
     !     integer, intent(in) :: residue_type      ! Residue type to remove
@@ -136,7 +136,7 @@ contains
         energy%coulomb          = energy%coulomb        + new%coulomb       - old%coulomb
         energy%ewald_self       = energy%ewald_self     + new%ewald_self    - old%ewald_self
         energy%intra_coulomb    = energy%intra_coulomb  + new%intra_coulomb - old%intra_coulomb
-        energy%total            = energy%total          + new%total         - old%total 
+        energy%total            = energy%total          + new%total         - old%total
 
         ! Count succesful move
         counter%deletions = counter%deletions + 1
@@ -181,10 +181,10 @@ contains
         primary%mol_com(:, residue_type, molecule_index) = mol_com_old(:)
         primary%site_offset(:, residue_type, molecule_index, 1:nb%atom_in_residue(residue_type)) = &
             site_offset_old(:, 1:nb%atom_in_residue(residue_type))
-            
+
         ! Restore Fourier states (ik_alloc and dk_alloc)
         call RestoreSingleMolFourier(residue_type, molecule_index)
-            
+
     end subroutine RejectDeletionMove
 
 end module molecule_deletion

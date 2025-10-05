@@ -114,7 +114,7 @@ contains
         k_squared = (dble(kx)/dble(kmax(1)))**2 + &
                     (dble(ky)/dble(kmax(2)))**2 + &
                     (dble(kz)/dble(kmax(3)))**2
-    
+
     end function NormalizedKSquared
 
     !-------------------------------------------------------------------
@@ -206,7 +206,7 @@ contains
         ! Reject near-zero k-vectors (avoid singularity at k=0)
         ! and any vectors outside the normalized unit sphere.
         valid = (abs(k_squared) >= error) .and. (k_squared <= one)
-        
+
     end function CheckValidReciprocalVector
 
     !-------------------------------------------------------------------

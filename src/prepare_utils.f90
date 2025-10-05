@@ -193,8 +193,8 @@ contains
         real(real64) :: k_squared           ! Normalized squared magnitude of k-vector
 
         ! Compute maximum Fourier indices in X, Y, Z directions
-        ewald%kmax = nint(0.25_real64 + primary%metrics(1:3) * ewald%alpha * ewald%fourier_precision / PI)        
-        
+        ewald%kmax = nint(0.25_real64 + primary%metrics(1:3) * ewald%alpha * ewald%fourier_precision / PI)
+
         ! Count the total number of valid reciprocal vectors
         count = 0
         do kx_idx = 0, ewald%kmax(1)
@@ -210,7 +210,7 @@ contains
         end do
 
         ewald%num_kvectors = count
-    
+
     end subroutine ComputeFourierIndices
 
     !-------------------------------------------------------------------

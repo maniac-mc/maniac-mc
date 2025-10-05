@@ -162,12 +162,12 @@ contains
                 ! Wrap coordinate into [lower_bound, lower_bound + box_length):
                 ! x' = lower_bound + mod(x - lower_bound, box_length)
                 pos(dim) = lower_bound + modulo(pos(dim) - lower_bound, box_length)
-            
+
             end do
 
         ! Triclinic Box
         else
-        
+
             ! Convert Cartesian -> fractional coordinates
             ! Using the box matrix H (columns = box vectors):
             !   s = H^{-1} * (r - r0)

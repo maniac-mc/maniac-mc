@@ -22,5 +22,5 @@ jobs:
 
       - name: Run Flint lint
         run: |
-          ~/.local/bin/flint report src
+          ~/.local/bin/flint report src --fail-on-warnings
 

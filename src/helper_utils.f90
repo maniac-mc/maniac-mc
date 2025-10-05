@@ -39,7 +39,7 @@ contains
     function RotationMatrix(axis, theta) result(rotation_matrix)
 
         implicit none
-            
+
         integer, intent(in) :: axis               ! Rotation axis (1=X, 2=Y, 3=Z)
         real(real64), intent(in) :: theta         ! Rotation angle in radians
         real(real64) :: rotation_matrix(3,3)      ! 3x3 rotation matrix to be returned
@@ -87,13 +87,13 @@ contains
     pure logical function present_or_false(opt_flag)
 
         logical, intent(in), optional :: opt_flag
-    
+
         if (present(opt_flag)) then
             present_or_false = opt_flag
         else
             present_or_false = .false.
         end if
-    
+
     end function present_or_false
 
     !--------------------------------------------------------------------
