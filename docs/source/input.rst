@@ -12,7 +12,7 @@ Minimal Example
 Below is a minimal example for a system with two residue types: water molecules
 (the active species) and ZIF-8 (the rigid host framework).
 
-.. code-block:: plaintext
+.. code-block:: text
 
     # Input for maniac program
 
@@ -55,19 +55,19 @@ Below is a minimal example for a system with two residue types: water molecules
 This example corresponds to water adsorption in a rigid ZIF-8:  
 
 - The first residue block defines a TIP4P water molecule (``wat``).  
-  - It is marked as **actif**, meaning Monte Carlo moves (translation,
-    rotation, insertion, deletion) will be attempted.  
-  - A high fugacity (``10000 atm``) is used to mimics a rapid adsorption.  
-  - Atom types (1 2 3) and names (Ow Mw Hw) correspond to the oxygen (Ow),
-    a virtual site (Mw) and hydrogen atoms (Hw),
-  - ``nb-atoms 4`` specifies the number of atoms in a molecule.  
+- It is marked as **actif**, meaning Monte Carlo moves (translation,
+  rotation, insertion, deletion) will be attempted.  
+- A high fugacity (``10000 atm``) is used to mimics a rapid adsorption.  
+- Atom types (1 2 3) and names (Ow Mw Hw) correspond to the oxygen (Ow),
+  a virtual site (Mw) and hydrogen atoms (Hw),
+- ``nb-atoms 4`` specifies the number of atoms in a molecule.  
 
 - The second residue block defines the **ZIF-8 framework** (``zif``).  
-  - It is marked as **inactif**, so it remains rigid and is not subject to Monte
-    Carlo moves.  
-  - Atom types and names (Zn C1 C2 H1 C3 H2 H3 N) represent the crystallographic
-    composition of ZIF-8.  
-  - ``nb-atoms 2208`` specifies the number of atoms in the framework.
+- It is marked as **inactif**, so it remains rigid and is not subject to Monte
+  Carlo moves.  
+- Atom types and names (Zn C1 C2 H1 C3 H2 H3 N) represent the crystallographic
+  composition of ZIF-8.  
+- ``nb-atoms 2208`` specifies the number of atoms in the framework.
 
 The probabilities for translation, rotation, big moves, and insertion/deletion
 (`translation_proba`, `rotation_proba`, `big_move_proba`,
@@ -81,22 +81,26 @@ Simulation Control
 
 Number of blocks
 ################
+
 **nb_block** (Integer, required)  
 Number of Monte Carlo **blocks** to run.  
 A block is a group of MC steps used for statistical averaging.
 
 Number of steps per block
 #########################
+
 **nb_step** (Integer, required)  
 Number of Monte Carlo **steps** per block.
 
 Simulation temperature
 ######################
+
 **temperature** (Float, required, units: K)  
 Target simulation temperature.
 
 Random seed
 ###########
+
 **seed** (Integer, optional, default: random)  
 Initial seed for the random number generator. Using the same seed
 will reproduce identical simulation trajectories.  
@@ -107,12 +111,14 @@ Electrostatics
 
 Ewald summation tolerance
 #########################
+
 **ewald_tolerance** (Float, optional, default: 1e-6)  
 Convergence tolerance for Ewald summation of electrostatic interactions.  
 Smaller values increase accuracy but increase cost.
 
 Real-space cutoff distance
 ##########################
+
 **real_space_cutoff** (Float, optional, default: 10 Å)  
 Cutoff distance in real space for electrostatics.
 
@@ -121,21 +127,25 @@ Monte Carlo Moves
 
 Maximum translation step
 ########################
+
 **translation_step** (Float, required, units: Å)  
 Maximum translational displacement allowed in a move.
 
 Maximum rotation angle
 ######################
+
 **rotation_step_angle** (Float, required, units: radians)  
 Maximum rotation angle allowed in a move.
 
 Recalibrate moves automatically
 ###############################
+
 **recalibrate_moves** (Boolean, optional, default: false)  
 If true, automatically adjust step sizes to maintain acceptance ratios.
 
 Move probabilities
 ##################
+
 - **translation_proba** (Float, optional, default: 0.0)  
   Probability of attempting a translation move.  
 
@@ -155,6 +165,7 @@ A residue block defines the composition and properties of each molecule type.
 Each block starts with ``begin_residue`` and ends with ``end_residue``.
 
 Residue parameters:
+
 - **name** (String, required): Residue name (e.g., ``CO2``, ``H2O``, ``MOF``).  
 - **state** (String, required): ``actif`` (active, subject to MC moves) or ``inactif`` (rigid).  
 - **fugacity** (Float, optional, units: bar): Chemical potential of the residue.  
