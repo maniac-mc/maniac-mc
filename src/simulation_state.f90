@@ -142,6 +142,8 @@ module simulation_state
         integer, dimension(:, :, :), allocatable :: angle_type_2d      ! Site angles for each residue
         integer, dimension(:, :, :), allocatable :: dihedral_type_2d   ! Site dihedrals for each residue
         integer, dimension(:, :, :), allocatable :: improper_type_2d   ! Site impropers for each residue
+        real(real64), dimension(:, :), allocatable :: site_offset_old    ! Local site X Y Z displacements from molecule center
+        real(real64), dimension(3) :: mol_com_old ! For storing old molecule center-of-mass
     end type type_residue
     type(type_residue) :: res
 
@@ -179,6 +181,12 @@ module simulation_state
         complex(real64), dimension(:), allocatable :: recip_amplitude_old ! Old fourier coefficients of charge density or potential
         real(real64), dimension(:), allocatable :: form_factor ! Factor to account for symmetry (k vs -k)
         type(kvector_type), allocatable :: kvectors(:) ! Precomputed reciprocal vectors
+        complex(real64), dimension(:), allocatable :: temp_x  ! Temporary Fourier array along X
+        complex(real64), dimension(:), allocatable :: temp_y  ! Temporary Fourier array along Y
+        complex(real64), dimension(:), allocatable :: temp_z  ! Temporary Fourier array along Z
+        complex(real64), dimension(:), allocatable :: phase_new  ! Temporary array for new configuration phases
+        complex(real64), dimension(:), allocatable :: phase_old  ! Temporary array for old configuration phases
+        real(real64), dimension(:), allocatable :: charges ! Temporary array for atom charges    
     end type type_ewald
     type(type_ewald) :: ewald
 

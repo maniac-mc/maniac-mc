@@ -4,6 +4,9 @@ module random_utils
 
     implicit none
 
+    ! Preallocate put array for RNG seeding
+    integer, allocatable :: seed_array(:)
+
 contains
 
     ! Returns double precision random number uniformly distributed in [0,1)
@@ -32,7 +35,6 @@ contains
     subroutine seed_rng(seed)
         integer, intent(in) :: seed
         integer :: n, i, useed
-        integer, allocatable :: put(:)
         integer :: count, count_rate, count_max
 
         if (seed == 0) then
@@ -44,12 +46,13 @@ contains
         end if
 
         call random_seed(size=n)
-        allocate(put(n))
 
-        put = useed + 37 * [(i-1, i=1,n)]
-        call random_seed(put=put)
+        ! Allocate seed_array only once
+        if (.not. allocated(seed_array)) allocate(seed_array(n))
 
-        deallocate(put)
+        seed_array = useed + 37 * [(i-1, i=1,n)]
+        call random_seed(put=seed_array)
+
     end subroutine seed_rng
 
 end module random_utils

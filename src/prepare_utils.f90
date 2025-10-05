@@ -29,7 +29,7 @@ contains
 
         ! Step 3: Allocate memory for arrays needed by the Ewald
         !         method (reciprocal vectors, coefficients, etc.)
-        call AllocateEwaldArray()
+        call AllocateArray()
 
         ! Step 4: Precompute k vectors
         call PrecomputeValidReciprocalVectors()
@@ -217,9 +217,11 @@ contains
     ! Subroutine: ALLOC_TAB
     ! Purpose: Allocate arrays used for Fourier components and related data
     !-------------------------------------------------------------------
-    subroutine AllocateEwaldArray()
+    subroutine AllocateArray()
 
         implicit none
+
+        allocate(res%site_offset_old(3, nb%max_atom_in_residue))
 
         ! Allocate real arrays for coefficients (dimension ewald%num_kvectors)
         allocate(ewald%recip_constants(1:ewald%num_kvectors))
@@ -235,9 +237,17 @@ contains
         allocate(ewald%phase_factor_y_old(1:nb%max_atom_in_residue, -ewald%kmax(2):ewald%kmax(2)))
         allocate(ewald%phase_factor_z_old(1:nb%max_atom_in_residue, -ewald%kmax(3):ewald%kmax(3)))
 
+        ! Allocate temporary arrays once
+        allocate(ewald%temp_x(-ewald%kmax(1):ewald%kmax(1)))
+        allocate(ewald%temp_y(-ewald%kmax(2):ewald%kmax(2)))
+        allocate(ewald%temp_z(-ewald%kmax(3):ewald%kmax(3)))
+        allocate(ewald%phase_new(nb%max_atom_in_residue))
+        allocate(ewald%phase_old(nb%max_atom_in_residue))
+        allocate(ewald%charges(nb%max_atom_in_residue))
+
         ! Allocate kvectors
         allocate(ewald%kvectors(ewald%num_kvectors))
 
-    end subroutine AllocateEwaldArray
+    end subroutine AllocateArray
 
 end module prepare_utils
