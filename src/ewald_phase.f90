@@ -391,18 +391,7 @@ contains
         integer :: atom_index_1                 ! Atom index
         real(real64), dimension(3) :: atom      ! Atom coordinates in real space
         real(real64), dimension(3) :: phase     ! Phase factors for Fourier terms
-        integer :: kmax_x, kmax_y, kmax_z       ! Max k indices for each direction
-        complex(real64), allocatable :: temp_x(:), temp_y(:), temp_z(:)  ! temp arrays for phase factors
 
-        ! Determine kmax for each direction
-        kmax_x = ewald%kmax(1)
-        kmax_y = ewald%kmax(2)
-        kmax_z = ewald%kmax(3)
-
-        ! Allocate temporary arrays once
-        allocate(temp_x(-kmax_x:kmax_x))
-        allocate(temp_y(-kmax_y:kmax_y))
-        allocate(temp_z(-kmax_z:kmax_z))
 
         do atom_index_1 = 1, nb%atom_in_residue(res_type)
 
@@ -417,14 +406,14 @@ contains
             ! Precompute the complex exponential (phase) factors for this atom
             ! along each Cartesian direction. These factors will be used repeatedly
             ! in the reciprocal-space sum for the Ewald energy.
-            call ComputePhaseFactors1D(temp_x, phase(1), kmax_x)
-            ewald%phase_factor_x(res_type, mol_index, atom_index_1, :) = temp_x
+            call ComputePhaseFactors1D(ewald%temp_x, phase(1), ewald%kmax(1))
+            ewald%phase_factor_x(res_type, mol_index, atom_index_1, :) = ewald%temp_x
 
-            call ComputePhaseFactors1D(temp_y, phase(2), kmax_y)
-            ewald%phase_factor_y(res_type, mol_index, atom_index_1, :) = temp_y
+            call ComputePhaseFactors1D(ewald%temp_y, phase(2), ewald%kmax(2))
+            ewald%phase_factor_y(res_type, mol_index, atom_index_1, :) = ewald%temp_y
 
-            call ComputePhaseFactors1D(temp_z, phase(3), kmax_z)
-            ewald%phase_factor_z(res_type, mol_index, atom_index_1, :) = temp_z
+            call ComputePhaseFactors1D(ewald%temp_z, phase(3), ewald%kmax(3))
+            ewald%phase_factor_z(res_type, mol_index, atom_index_1, :) = ewald%temp_z
 
         end do
 

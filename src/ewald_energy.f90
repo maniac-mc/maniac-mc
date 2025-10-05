@@ -204,9 +204,6 @@ contains
         integer :: natoms                      ! Number of atoms in this residue type
         real(real64) :: amplitude_sq           ! Squared modulus of the structure factor amplitude
         real(real64) :: form_factor            ! Symmetry factor: 1 if kx=0, 2 otherwise
-        real(real64), dimension(:), allocatable :: charges   ! Partial charges of atoms
-        complex(real64), dimension(:), allocatable :: phase_new   ! Updated phase factor product
-        complex(real64), dimension(:), allocatable :: phase_old   ! Previous phase factor product
         logical :: creation_flag
         logical :: deletion_flag
 
@@ -218,11 +215,7 @@ contains
 
         ! Atom charges in this residue
         natoms = nb%atom_in_residue(residue_type)
-        allocate(charges(natoms))
-        charges = primary%atom_charges(residue_type, 1:natoms)
-
-        ! Allocate phase_new and phase_old
-        allocate(phase_new(natoms), phase_old(natoms))
+        ewald%charges(1:natoms) = primary%atom_charges(residue_type, 1:natoms)
 
         ! Loop over all precomputed reciprocal lattice vectors
         do idx = 1, ewald%num_kvectors
@@ -235,28 +228,31 @@ contains
             ky_idx = ewald%kvectors(idx)%ky
             kz_idx = ewald%kvectors(idx)%kz
 
-            ! Compute total phase factors (new vs. old configuration)
-            phase_new = ewald%phase_factor_x(residue_type, molecule_index, 1:natoms, kx_idx) * &
-                        ewald%phase_factor_y(residue_type, molecule_index, 1:natoms, ky_idx) * &
-                        ewald%phase_factor_z(residue_type, molecule_index, 1:natoms, kz_idx)
+            ! Compute phase factors for the current residue
+            ewald%phase_new(1:natoms) = ewald%phase_factor_x(residue_type, molecule_index, 1:natoms, kx_idx) * &
+                ewald%phase_factor_y(residue_type, molecule_index, 1:natoms, ky_idx) * &
+                ewald%phase_factor_z(residue_type, molecule_index, 1:natoms, kz_idx)
 
-            phase_old = ewald%phase_factor_x_old(1:natoms, kx_idx) * &
-                        ewald%phase_factor_y_old(1:natoms, ky_idx) * &
-                        ewald%phase_factor_z_old(1:natoms, kz_idx)
+            ewald%phase_old(1:natoms) = ewald%phase_factor_x_old(1:natoms, kx_idx) * &
+                ewald%phase_factor_y_old(1:natoms, ky_idx) * &
+                ewald%phase_factor_z_old(1:natoms, kz_idx)
 
             ! Update Fourier coefficient A(k)
             if (creation_flag) then
                 ! Molecule creation
                 ! A(k) ← A(k) + Σ q_i [ e^(i k·r_i,new) ]
-                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + sum(charges * phase_new)
+                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + &
+                    sum(ewald%charges(1:natoms) * ewald%phase_new(1:natoms))
             else if (deletion_flag) then
                 ! Molecule deletion
                 ! A(k) ← A(k) + Σ q_i [ - e^(i k·r_i,old) ]
-                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) - sum(charges * phase_old)
+                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) - &
+                    sum(ewald%charges(1:natoms) * ewald%phase_old(1:natoms))
             else
                 ! Standard move (translation, rotation)
                 ! A(k) ← A(k) + Σ q_i [ e^(i k·r_i,new) - e^(i k·r_i,old) ]
-                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + sum(charges * (phase_new - phase_old))
+                ewald%recip_amplitude(idx) = ewald%recip_amplitude(idx) + &
+                    sum(ewald%charges(1:natoms) * (ewald%phase_new(1:natoms) - ewald%phase_old(1:natoms)))
             end if
 
             ! Compute squared modulus of the structure factor amplitude
