@@ -77,22 +77,30 @@ contains
     end function ComputeRecipAmplitude
 
     !--------------------------------------------------------------------
-    ! Computes the reciprocal-space contribution to the Coulomb energy
+    ! ComputeReciprocalEnergy
     !
-    ! This subroutine calculates the Ewald reciprocal-space energy using
-    ! precomputed k-vectors stored in ewald%kvectors. Each k-vector's
-    ! structure factor amplitude is computed, squared, and weighted by
-    ! the precomputed reciprocal constant and the form factor.
+    ! Purpose:
+    !   Computes the total reciprocal-space Coulomb energy for the system.
     !
-    ! Advantages of using precomputed k-vectors:
-    !   - Eliminates triple nested loops over kx, ky, kz indices.
-    !   - Avoids repeated computation of k-vector magnitudes.
-    !   - k=0 and vectors outside the unit-sphere cutoff are already excluded.
+    ! Description:
+    !   Loops over all precomputed k-vectors and evaluates:
     !
-    ! Energy formula for each k-vector:
-    !   E_k = form_factor * recip_constant * |recip_amplitude|^2
+    !       E_k = form_factor * W(k) * |A(k)|^2
     !
-    ! The total reciprocal energy is scaled to eV per molecule.
+    !   where:
+    !     - A(k) is the structure factor amplitude
+    !     - W(k) is the reciprocal-space weight
+    !     - form_factor accounts for k vs -k symmetry
+    !
+    ! Input:
+    !   None
+    !
+    ! Output:
+    !   u_recipCoulomb : total reciprocal Coulomb energy (eV per molecule)
+    !
+    ! Notes:
+    !   - Uses precomputed reciprocal vectors and phase factors.
+    !   - Converts the final sum to physical units at the end.
     !--------------------------------------------------------------------
     subroutine ComputeReciprocalEnergy(u_recipCoulomb)
 
@@ -269,91 +277,141 @@ contains
 
     end subroutine ComputeRecipEnergySingleMol
 
-    !------------------------------------------------------------------------------
+    !--------------------------------------------------------------------
     ! ComputeEwaldSelfInteractionSingleMol
-    ! Computes the Ewald self-energy correction for a single molecule.
-    !------------------------------------------------------------------------------
-    subroutine ComputeEwaldSelfInteractionSingleMol(residue_type, self_energy_1)
+    !
+    ! Purpose:
+    !   Computes the self-interaction correction for the reciprocal-space
+    !   Coulomb energy of a single molecule/residue in the Ewald summation.
+    !
+    ! Background:
+    !   In Ewald summation, each charge interacts with all periodic images
+    !   of the system. This includes a spurious interaction of a charge
+    !   with itself, which must be subtracted to obtain the correct energy.
+    !
+    !   The self-energy for a single charge q_i is:
+    !
+    !       E_self(i) = - (α / √π) * q_i^2
+    !
+    !   where α is the Ewald screening parameter. The total self-energy
+    !   for a molecule/residue is the sum over all atoms in that molecule:
+    !
+    !       E_self = Σ_i E_self(i) = - (α / √π) * Σ_i q_i^2
+    !
+    ! Inputs:
+    !   residue_type : integer index identifying the molecule/residue
+    !
+    ! Outputs:
+    !   self_energy_1 : real(real64)
+    !       Reciprocal-space self-energy correction for this molecule (in eV)
+    !
+    ! Notes:
+    !   - Charges below 1e-10 are ignored to prevent unnecessary computations.
+    !   - The result is scaled to eV per molecule using EPS0_INV_eVA / KB_eVK.
+    !--------------------------------------------------------------------
+    subroutine ComputeEwaldSelfInteractionSingleMol(residue_type, self_energy)
         
         implicit none
 
         ! Input arguments
         integer, intent(in) :: residue_type
-        real(real64), intent(out) :: self_energy_1
-
+        real(real64), intent(out) :: self_energy
         ! Local variables
         integer :: atom_index_1
         real(real64) :: charge_1
 
-        self_energy_1 = 0.0_real64
+        ! Initialize self-energy accumulator
+        self_energy = zero
+
+        ! Loop over all atoms in the molecule/residue
         do atom_index_1 = 1, nb%atom_in_residue(residue_type)
             charge_1 = primary%atom_charges(residue_type, atom_index_1)
-            if (abs(charge_1) < 1.0D-10) cycle
-            self_energy_1 = self_energy_1 - ewald%alpha / SQRTPI * charge_1**2
+
+            ! Skip atoms with negligible charge
+            if (abs(charge_1) < error) cycle
+
+            ! Add the individual atomic self-energy contribution
+            self_energy = self_energy - ewald%alpha / SQRTPI * charge_1**2
         end do
 
         ! Scale by constants EPS0_INV_eVA and KB_eVK
-        self_energy_1 = self_energy_1 * EPS0_INV_eVA / KB_eVK 
-
-        return
+        self_energy = self_energy * EPS0_INV_eVA / KB_eVK 
 
     end subroutine ComputeEwaldSelfInteractionSingleMol
 
     !------------------------------------------------------------------------------
     ! ComputeIntraResidueRealCoulombEnergySingleMol
-    ! Computes real-space intramolecular Coulomb energy for a molecule.
+    !
+    ! Purpose:
+    !   Computes the **real-space intramolecular Coulomb energy** for a single
+    !   molecule or residue using the Ewald summation method.
+    !
+    ! Background:
+    !   In Ewald summation, the real-space contribution for a pair of charges
+    !   q_i and q_j separated by distance r_ij is:
+    !
+    !       E_ij_real = q_i * q_j * (erfc(α * r_ij) / r_ij)
+    !
+    !   For intramolecular interactions, a correction term (-q_i*q_j/r_ij) is
+    !   sometimes included to avoid double counting or to remove the singularity
+    !   at r -> 0. This implementation computes:
+    !
+    !       E_intra = Σ_{i<j} q_i * q_j * (erfc(α * r_ij) - 1) / r_ij
+    !
+    ! Inputs:
+    !   residue_type   : integer
+    !       Index identifying the residue type / molecule
+    !   molecule_index : integer
+    !       Index of the molecule in the system
+    !
+    ! Outputs:
+    !   u_intraCoulomb_1 : real(real64)
+    !       Real-space intramolecular Coulomb energy (in eV)
+    !
+    ! Notes:
+    !   - Pairs of atoms with distance < 1e-10 are skipped to avoid singularity.
+    !   - The result is scaled to physical units using EPS0_INV_eVA / KB_eVK.
     !------------------------------------------------------------------------------
-    subroutine ComputeIntraResidueRealCoulombEnergySingleMol(residue_type, molecule_index, u_intraCoulomb_1)
+    subroutine ComputeIntraResidueRealCoulombEnergySingleMol(residue_type, molecule_index, u_intraCoulomb)
 
         implicit none
 
         ! Input arguments
         integer, intent(in) :: residue_type
         integer, intent(in) :: molecule_index
-        real(real64), intent(out) :: u_intraCoulomb_1
-
+        real(real64), intent(out) :: u_intraCoulomb
         ! Local variables
         integer :: atom_index_1, atom_index_2
         real(real64) :: distance
         real(real64) :: charge_1, charge_2
 
-        u_intraCoulomb_1 = 0
+        ! Initialize energy accumulator
+        u_intraCoulomb = 0
 
+        ! Loop over all unique atom pairs in the molecule
         do atom_index_1 = 1, nb%atom_in_residue(residue_type)-1
             charge_1 = primary%atom_charges(residue_type, atom_index_1)
 
             do atom_index_2 = atom_index_1+1, nb%atom_in_residue(residue_type)
                 charge_2 = primary%atom_charges(residue_type, atom_index_2)
 
+                ! Compute interatomic distance
                 distance = ComputeDistance(primary, residue_type, molecule_index, atom_index_1, &
                             residue_type, molecule_index, atom_index_2)
 
-                if (distance > 1.0d-10) then
-                    u_intraCoulomb_1 = u_intraCoulomb_1 + &
-                        charge_1 * charge_2 * (erfc(ewald%alpha * distance) - 1.0d0) / distance
+                ! Skip extremely small distances to avoid singularity
+                if (distance > error) then
+                    ! Add the real-space intramolecular contribution:
+                    ! (erfc(α * r) - 1) / r
+                    u_intraCoulomb = u_intraCoulomb + charge_1 * charge_2 * (erfc(ewald%alpha * distance) - one) / distance
                 end if
 
             end do
         end do
 
         ! Scale by constants EPS0_INV_eVA and KB_eVK
-        u_intraCoulomb_1 = u_intraCoulomb_1 * EPS0_INV_eVA / KB_eVK
+        u_intraCoulomb = u_intraCoulomb * EPS0_INV_eVA / KB_eVK
 
     end subroutine ComputeIntraResidueRealCoulombEnergySingleMol
-
-    !--------------------------------------------------------------------
-    ! Returns squared modulus of a complex number:
-    !   |z|^2 = Re(z)^2 + Im(z)^2
-    !--------------------------------------------------------------------
-    pure function amplitude_squared(z) result(val)
-
-        ! Input argument
-        complex(real64), intent(in) :: z
-        ! Output rgument
-        real(real64) :: val
-
-        val = real(z*conjg(z), kind=real64)
-
-    end function amplitude_squared
 
 end module ewald_energy

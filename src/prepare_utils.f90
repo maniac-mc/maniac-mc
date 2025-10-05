@@ -32,7 +32,7 @@ contains
         call AllocateEwaldArray()
 
         ! Step 4: Precompute k vectors
-        call PrecomputeKVectors()
+        call PrecomputeValidReciprocalVectors()
 
         ! Step 5: Log the Ewald parameters and settings for
         !         reproducibility and debugging
@@ -201,8 +201,8 @@ contains
             do ky_idx = -ewald%kmax(2), ewald%kmax(2)
                 do kz_idx = -ewald%kmax(3), ewald%kmax(3)
                     if (kx_idx == 0 .and. ky_idx == 0 .and. kz_idx == 0) cycle
-                    k_squared = NormalizedK2(kx_idx, ky_idx, kz_idx, ewald%kmax)
-                    if (IsValidKVector(k_squared)) then
+                    k_squared = NormalizedKSquared(kx_idx, ky_idx, kz_idx, ewald%kmax)
+                    if (CheckValidReciprocalVector(k_squared)) then
                         count = count + 1
                     end if
                 end do
