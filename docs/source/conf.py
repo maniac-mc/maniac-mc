@@ -11,16 +11,8 @@ copyright = '2025, Simon Gravelle'
 author = 'Simon Gravelle'
 release = 'v0.3.0-beta'
 
-import os
-breathe_projects = {
-    "ManiaC": os.path.abspath(os.path.join(os.path.dirname(__file__), "xml"))
-}
-print("Breathe XML path:", breathe_projects["ManiaC"])
-breathe_default_project = "ManiaC"
-
 # -- General configuration ---------------------------------------------------
 extensions = [
-    'breathe',
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
 ]

@@ -34,5 +34,4 @@ a pair style of the family `lj/cut/coul/long` is used.
     input
     build
     unit
-    api
     credit
