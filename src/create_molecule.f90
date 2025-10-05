@@ -1,5 +1,15 @@
 module molecule_creation
 
+    !===========================================================================
+    ! Module: molecule_creation
+    !
+    ! Purpose:
+    !   Implements Monte Carlo creation (insertion) moves for molecules in a
+    !   simulation box. Handles inserting molecules, updating energies,
+    !   Fourier terms, and optionally removing molecules from a reservoir.
+    !
+    !======
+
     use monte_carlo_utils
     use ewald_kvectors
     use ewald_phase
@@ -22,11 +32,10 @@ contains
     ! Subroutine: CreateMolecule
     !
     ! Purpose:
-    !   Attempts to insert (create) a new molecule of a given residue type
-    !   at a random position and orientation inside the simulation box,
-    !   following the Monte Carlo insertion move scheme.
-    !   The move is accepted or rejected based on the Metropolis criterion
-    !   using the energy difference and the fugacity of the species.
+    !   Attempts to insert a new molecule of a given residue type at a random
+    !   position and orientation inside the simulation box. Computes energy
+    !   changes, applies the Metropolis criterion, and either accepts or
+    !   rejects the creation.
     !
     !---------------------------------------------------------------------------
     subroutine CreateMolecule(residue_type, molecule_index)
@@ -76,6 +85,14 @@ contains
 
     end subroutine CreateMolecule
 
+    !---------------------------------------------------------------------------
+    ! Subroutine: AcceptCreationMove
+    !
+    ! Purpose:
+    !   Updates system energies and counters when a creation move is accepted.
+    !   Optionally removes the inserted molecule from the reservoir.
+    !
+    !---------------------------------------------------------------------------
     subroutine AcceptCreationMove(residue_type, rand_mol_index, old, new)
 
         implicit none
@@ -113,6 +130,14 @@ contains
 
     end subroutine AcceptCreationMove
 
+    !---------------------------------------------------------------------------
+    ! Subroutine: RejectCreationMove
+    !
+    ! Purpose:
+    !   Restores molecule and atom counts, and resets Fourier states if a
+    !   creation move is rejected.
+    !
+    !---------------------------------------------------------------------------
     subroutine RejectCreationMove(residue_type, molecule_index)
 
         implicit none
@@ -129,6 +154,15 @@ contains
 
     end subroutine RejectCreationMove
 
+    !---------------------------------------------------------------------------
+    ! Subroutine: InsertAndOrientMolecule
+    !
+    ! Purpose:
+    !   Generates a random position for the new molecule and copies/orients
+    !   its atomic geometry. Can take geometry from a reservoir or apply
+    !   a random rotation if no reservoir exists.
+    !
+    !---------------------------------------------------------------------------
     subroutine InsertAndOrientMolecule(residue_type, molecule_index, rand_mol_index)
 
         implicit none
@@ -136,7 +170,7 @@ contains
         ! Input arguments
         integer, intent(in) :: residue_type     ! Residue type to be moved
         integer, intent(in) :: molecule_index   ! Molecule ID
-        integer :: rand_mol_index               ! Randomly selected molecule index from the reservoir for copying geometry
+        integer, intent(out) :: rand_mol_index  ! Randomly selected molecule index from the reservoir
         ! Local variables
         logical :: full_rotation                ! Flag indicating whether a full 360° random rotation should be applied
         real(real64) :: random_nmb              ! Uniform random number in [0,1), used for random index selection
@@ -165,8 +199,9 @@ contains
                 primary%site_offset(:, residue_type, 1, 1:nb%atom_in_residue(residue_type))
 
             ! Rotate the new molecule randomly (using full 360° rotation)
-            full_rotation = .True.
+            full_rotation = .true.
             call ApplyRandomRotation(residue_type, molecule_index, full_rotation)
+
         end if
 
     end subroutine InsertAndOrientMolecule

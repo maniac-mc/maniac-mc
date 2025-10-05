@@ -142,6 +142,8 @@ module simulation_state
         integer, dimension(:, :, :), allocatable :: angle_type_2d      ! Site angles for each residue
         integer, dimension(:, :, :), allocatable :: dihedral_type_2d   ! Site dihedrals for each residue
         integer, dimension(:, :, :), allocatable :: improper_type_2d   ! Site impropers for each residue
+        real(real64), dimension(:, :), allocatable :: site_offset_old    ! Local site X Y Z displacements from molecule center
+        real(real64), dimension(3) :: mol_com_old ! For storing old molecule center-of-mass
     end type type_residue
     type(type_residue) :: res
 

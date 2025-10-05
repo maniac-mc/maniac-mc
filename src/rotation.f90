@@ -39,19 +39,15 @@ contains
         integer, intent(in) :: residue_type        ! Residue type to be moved
         integer, intent(in) :: molecule_index     ! Molecule ID
         ! Local variables
-        real(real64), dimension(:, :), allocatable :: site_offset_old    ! Local site X Y Z displacements from molecule center
         real(real64) :: probability                              ! Acceptance probability of rotation move
 
         ! Exit early if molecule cannot rotate
         if ((nb%atom_in_residue(residue_type) == 1) .or. (molecule_index == 0)) return
 
-        ! Allocate site_offset_old
-        allocate(site_offset_old(3, nb%max_atom_in_residue))
-
         ! Count trial move (success + fail)
         counter%trial_rotations = counter%trial_rotations + 1
 
-        call SaveMoleculeState(residue_type, molecule_index, offset_old = site_offset_old)
+        call SaveMoleculeState(residue_type, molecule_index, offset_old = res%site_offset_old)
 
         ! Compute previous energy
         call ComputeOldEnergy(residue_type, molecule_index, old)
@@ -72,7 +68,7 @@ contains
 
         else ! Reject move
 
-            call RejectMoleculeMove(residue_type, molecule_index, site_offset_old = site_offset_old)
+            call RejectMoleculeMove(residue_type, molecule_index, site_offset_old = res%site_offset_old)
 
         end if
 
