@@ -223,7 +223,7 @@ contains
 
         ! Allocate phase_new and phase_old
         allocate(phase_new(natoms), phase_old(natoms))
-        
+
         ! Loop over all precomputed reciprocal lattice vectors
         do idx = 1, ewald%num_kvectors
 
@@ -310,7 +310,7 @@ contains
     !   - The result is scaled to eV per molecule using EPS0_INV_eVA / KB_eVK.
     !--------------------------------------------------------------------
     subroutine ComputeEwaldSelfInteractionSingleMol(residue_type, self_energy)
-        
+
         implicit none
 
         ! Input arguments
@@ -335,7 +335,7 @@ contains
         end do
 
         ! Scale by constants EPS0_INV_eVA and KB_eVK
-        self_energy = self_energy * EPS0_INV_eVA / KB_eVK 
+        self_energy = self_energy * EPS0_INV_eVA / KB_eVK
 
     end subroutine ComputeEwaldSelfInteractionSingleMol
 

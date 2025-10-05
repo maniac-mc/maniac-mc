@@ -19,7 +19,7 @@ contains
     ! Subroutine: ApplyRandomRotation
     !
     ! Rotates all atoms of a residue around a randomly chosen
-    ! axis (X, Y, or Z) by a random angle. Angle can be a 
+    ! axis (X, Y, or Z) by a random angle. Angle can be a
     ! small perturbation or a full 0-2π rotation.
     !
     ! Inputs:
@@ -218,7 +218,7 @@ contains
                 probability = min(one, exp(-delta_e / T))
 
             case default
-                
+
                 call AbortRun("Unknown move_type in mc_acceptance_probability!", 1)
 
         end select
@@ -269,7 +269,7 @@ contains
 
     !---------------------------------------------------------------------------
     ! Purpose:
-    !   Compute the updated energy of a single molecule after a trial move 
+    !   Compute the updated energy of a single molecule after a trial move
     !   (translation or rotation) for use in the Monte Carlo acceptance test.
     !---------------------------------------------------------------------------
     subroutine ComputeNewEnergy(residue_type, molecule_index, new, is_creation, is_deletion)
@@ -316,9 +316,9 @@ contains
             ! Total energy of the molecule
             new%total = new%non_coulomb + new%coulomb + new%recip_coulomb
         end if
-        
+
     end subroutine ComputeNewEnergy
-        
+
     !---------------------------------------------------------------------------
     ! Purpose:
     !   Compute the "old" (pre-move) energy of a single molecule for Monte Carlo
@@ -362,7 +362,7 @@ contains
         deletion_flag = present_or_false(is_deletion)
 
         if (creation_flag) then
-        
+
             ! Creation scenario: molecule does not exist yet
             ! Most energy terms of an unexisting molecule are 0
             old%non_coulomb = zero
@@ -371,7 +371,7 @@ contains
             old%intra_coulomb = zero
             old%recip_coulomb = energy%recip_coulomb ! global system reciprocal energy
             old%total = old%non_coulomb + old%coulomb + old%recip_coulomb + old%ewald_self + old%intra_coulomb
-        
+
         else if (deletion_flag) then
 
             ! Deletion scenario
@@ -380,23 +380,23 @@ contains
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
             old%recip_coulomb = energy%recip_coulomb
             old%total = old%non_coulomb + old%coulomb + old%recip_coulomb + old%ewald_self + old%intra_coulomb
-        
+
         else
-        
+
             ! Normal pre-move scenario: molecule exists
             ! Compute current energy (cf e_old)
             call ComputeRecipEnergySingleMol(residue_type, molecule_index, old%recip_coulomb)
             call ComputePairInteractionEnergy_singlemol(primary, residue_type, molecule_index, old%non_coulomb, old%coulomb)
             ! Note: Translation/Translation does not affect ewald_self or intra_coulomb
             old%total = old%non_coulomb + old%coulomb + old%recip_coulomb
-        
+
         end if
 
     end subroutine ComputeOldEnergy
 
     !---------------------------------------------------------------------------
     ! Purpose:
-    !   Update the global system energy and Monte Carlo counters after 
+    !   Update the global system energy and Monte Carlo counters after
     !   accepting a trial move (translation or rotation) of a molecule.
     !
     ! Inputs:
@@ -408,17 +408,17 @@ contains
     !                 (e.g., translations or rotations), incremented if move accepted
     !---------------------------------------------------------------------------
     subroutine AcceptMove(old, new, counter_var)
-        
+
         ! Input arguments
         type(energy_state), intent(in) :: old, new
         integer, intent(inout) :: counter_var
-        
+
         energy%recip_coulomb = energy%recip_coulomb + new%recip_coulomb - old%recip_coulomb
         energy%non_coulomb = energy%non_coulomb + new%non_coulomb - old%non_coulomb
         energy%coulomb = energy%coulomb + new%coulomb - old%coulomb
         energy%total = energy%total + new%total - old%total
         counter_var = counter_var + 1
-    
+
     end subroutine
 
     !---------------------------------------------------------------------------

@@ -53,7 +53,7 @@ contains
     !------------------------------------------------------------------------------
 
     subroutine ComputeTotalIntraResidueCoulombEnergy()
-    
+
         implicit none
 
         integer :: residue_type_1
@@ -396,7 +396,7 @@ contains
         e_coulomb = zero
 
         ! Loop over sites in molecule residue_type
-        do atom_index_1 = 1, nb%atom_in_residue(residue_type_1) 
+        do atom_index_1 = 1, nb%atom_in_residue(residue_type_1)
 
             ! Loop over all molecule types 2
             do residue_type_2 = 1, nb%type_residue
@@ -416,7 +416,7 @@ contains
 
                         if (distance < input%real_space_cutoff) then
                             ! LJ potential
-                            sigma = coeff%sigma(residue_type_1, residue_type_2, atom_index_1, atom_index_2)                            
+                            sigma = coeff%sigma(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
                             epsilon = coeff%epsilon(residue_type_1, residue_type_2, atom_index_1, atom_index_2)
                             r6 = (sigma / distance)**6
                             r12 = r6 * r6

@@ -10,7 +10,7 @@ contains
     function rand_uniform() result(val)
 
         real(real64) :: val
-    
+
         call random_number(val)
     end function rand_uniform
 

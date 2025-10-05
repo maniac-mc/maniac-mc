@@ -19,7 +19,7 @@ contains
     !
     ! Purpose:
     !   Performs a trial rotation of a molecule around a random axis by a random
-    !   angle. The move is accepted or rejected based on the Metropolis 
+    !   angle. The move is accepted or rejected based on the Metropolis
     !   criterion using energy differences.
     !
     ! Inputs:
@@ -41,7 +41,7 @@ contains
         ! Local variables
         real(real64), dimension(:, :), allocatable :: site_offset_old    ! Local site X Y Z displacements from molecule center
         real(real64) :: probability                              ! Acceptance probability of rotation move
-        
+
         ! Exit early if molecule cannot rotate
         if ((nb%atom_in_residue(residue_type) == 1) .or. (molecule_index == 0)) return
 
@@ -69,13 +69,13 @@ contains
         if (rand_uniform() <= probability) then ! Accept move
 
             call AcceptMove(old, new, counter%rotations)
-        
+
         else ! Reject move
-        
+
             call RejectMoleculeMove(residue_type, molecule_index, site_offset_old = site_offset_old)
-        
+
         end if
-        
+
     end subroutine Rotation
 
 end module molecule_rotation

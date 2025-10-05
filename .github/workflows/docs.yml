@@ -1,0 +1,42 @@
+name: Build Documentation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            doxygen \
+            graphviz \
+            python3 \
+            python3-pip \
+            make
+
+      - name: Install Python packages for Sphinx
+        run: |
+          pip install --upgrade pip
+          pip install sphinx sphinx_rtd_theme breathe
+
+      - name: Build documentation
+        working-directory: docs
+        run: make html
+
+      - name: Upload built docs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-html
+          path: docs/build/html

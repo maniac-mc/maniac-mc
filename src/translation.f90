@@ -71,9 +71,9 @@ contains
 
             ! Accept move: update system state
             call AcceptMove(old, new, counter%translations)
-        
+
         else
-        
+
             ! Reject move: restore previous position
             call RejectMoleculeMove(residue_type, molecule_index, com_old = com_old)
 
@@ -83,7 +83,7 @@ contains
 
     !-----------------------------------------------------------------------
     !> RandomTranslation
-    !! 
+    !!
     !! Generate a trial translation move for a selected molecule of a given
     !! residue type. A random displacement vector is drawn uniformly from
     !! [-translation_step/2, translation_step/2) along each coordinate axis,

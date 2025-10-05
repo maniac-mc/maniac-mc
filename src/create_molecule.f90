@@ -43,7 +43,7 @@ contains
         logical :: is_creation                  ! Flag indicating creation
 
         call CheckMoleculeIndex(molecule_index, NB_MAX_MOLECULE)
-        
+
         ! Count trial move (success + fail)
         counter%trial_creations = counter%trial_creations + 1
 
@@ -56,7 +56,7 @@ contains
         primary%num_atoms = primary%num_atoms + nb%atom_in_residue(residue_type)
 
         ! Save current Fourier terms (should be all zeros here)
-        call SaveSingleMolFourierTerms(residue_type, molecule_index) 
+        call SaveSingleMolFourierTerms(residue_type, molecule_index)
 
         ! Generate random insertion position within the simulation box
         call InsertAndOrientMolecule(residue_type, molecule_index, rand_mol_index)
@@ -87,12 +87,12 @@ contains
         integer :: last_molecule_index          ! Index of the last molecule in the reservoir (used when removing a molecule)
 
         ! Update total energies
-        energy%recip_coulomb    = new%recip_coulomb
-        energy%non_coulomb      = energy%non_coulomb    + new%non_coulomb   - old%non_coulomb
-        energy%coulomb          = energy%coulomb        + new%coulomb       - old%coulomb
-        energy%ewald_self       = energy%ewald_self     + new%ewald_self    - old%ewald_self
-        energy%intra_coulomb    = energy%intra_coulomb  + new%intra_coulomb - old%intra_coulomb
-        energy%total            = energy%total          + new%total         - old%total 
+        energy%recip_coulomb = new%recip_coulomb
+        energy%non_coulomb = energy%non_coulomb + new%non_coulomb - old%non_coulomb
+        energy%coulomb = energy%coulomb + new%coulomb - old%coulomb
+        energy%ewald_self = energy%ewald_self + new%ewald_self - old%ewald_self
+        energy%intra_coulomb = energy%intra_coulomb + new%intra_coulomb - old%intra_coulomb
+        energy%total = energy%total + new%total - old%total
 
         ! Count successful move
         counter%creations = counter%creations + 1
@@ -108,7 +108,7 @@ contains
 
             reservoir%num_residues(residue_type) = reservoir%num_residues(residue_type) - 1
             reservoir%num_atoms = reservoir%num_atoms - nb%atom_in_residue(residue_type)
-        
+
         end if
 
     end subroutine AcceptCreationMove
