@@ -1,4 +1,4 @@
-# MANIAC-MC
+# MANIAC
 
 [![Build](https://github.com/maniac-mc/maniac-mc/actions/workflows/tests.yml/badge.svg)](https://github.com/maniac-mc/maniac-mc/actions/workflows/tests.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
@@ -10,7 +10,7 @@
     width="30%" align="right"/>
 </a>
 
-**MANIAC-MC** is a lightweight Monte Carlo simulation code written in Fortran,
+MANIAC is a lightweight Monte Carlo simulation code written in Fortran,
 designed for GCMC and adsorption studies. It reads basic LAMMPS-style topology
 files and supports the following Monte Carlo moves:
 
@@ -20,12 +20,18 @@ files and supports the following Monte Carlo moves:
 - Deletion  
 - Swap  
 
+## Why MANIAC?
+
+The original MANIAC computer (for Mathematical Analyzer, Numerical Integrator, and
+Computer) was built in the early 1950s at Los Alamos National Laboratory. It
+was one of the first machines used to perform Monte Carlo simulations in
+statistical physics and nuclear research.
+
 ## LAMMPS compatibility
 
-**MANIAC-MC** uses the same `.data` file format as LAMMPS for molecular
-topology. Electrostatic interactions are handled using Ewald summation.
-**MANIAC-MC** assumes that the real units system is used, and that
-a pair style of the familly lj/cut/coul/long is used.
+MANIAC uses the same `.data` file format as LAMMPS for molecular
+topology. MANIAC assumes that the real units system is used, and that
+a pair style of the family `lj/cut/coul/long` is used.
 
 ## Build the documentation
 
@@ -43,6 +49,8 @@ be open using:
 ```bash
 firefox build/html/index.html
 ```
+
+The documentation is also visible [here](https://maniac-mc.github.io/maniac-mc/).
 
 ## Examples and tests
 
