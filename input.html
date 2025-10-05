@@ -195,7 +195,7 @@
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Input Files</a></li>
 <li class="toctree-l1"><a class="reference internal" href="build.html">Build and Run</a></li>
 <li class="toctree-l1"><a class="reference internal" href="unit.html">Unit System</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ewald.html">Ewald summation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
 </ul>
 
@@ -245,7 +245,7 @@ and are ignored by the program.</p>
 <h2>Minimal Example<a class="headerlink" href="#minimal-example" title="Link to this heading">¶</a></h2>
 <p>Below is a minimal example for a system with two residue types: water molecules
 (the active species) and ZIF-8 (the rigid host framework).</p>
-<div class="highlight-plaintext notranslate"><div class="highlight"><pre><span></span># Input for maniac program
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># Input for maniac program
 
 # Generic parameters
 nb_block 200                     # Number of Monte Carlo blocks
@@ -285,30 +285,20 @@ end_residue
 </pre></div>
 </div>
 <p>This example corresponds to water adsorption in a rigid ZIF-8:</p>
-<ul>
-<li><p>The first residue block defines a TIP4P water molecule (<code class="docutils literal notranslate"><span class="pre">wat</span></code>).
-- It is marked as <strong>actif</strong>, meaning Monte Carlo moves (translation,</p>
-<blockquote>
-<div><p>rotation, insertion, deletion) will be attempted.</p>
-</div></blockquote>
 <ul class="simple">
+<li><p>The first residue block defines a TIP4P water molecule (<code class="docutils literal notranslate"><span class="pre">wat</span></code>).</p></li>
+<li><p>It is marked as <strong>actif</strong>, meaning Monte Carlo moves (translation,
+rotation, insertion, deletion) will be attempted.</p></li>
 <li><p>A high fugacity (<code class="docutils literal notranslate"><span class="pre">10000</span> <span class="pre">atm</span></code>) is used to mimics a rapid adsorption.</p></li>
 <li><p>Atom types (1 2 3) and names (Ow Mw Hw) correspond to the oxygen (Ow),
 a virtual site (Mw) and hydrogen atoms (Hw),</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nb-atoms</span> <span class="pre">4</span></code> specifies the number of atoms in a molecule.</p></li>
-</ul>
-</li>
-<li><p>The second residue block defines the <strong>ZIF-8 framework</strong> (<code class="docutils literal notranslate"><span class="pre">zif</span></code>).
-- It is marked as <strong>inactif</strong>, so it remains rigid and is not subject to Monte</p>
-<blockquote>
-<div><p>Carlo moves.</p>
-</div></blockquote>
-<ul class="simple">
+<li><p>The second residue block defines the <strong>ZIF-8 framework</strong> (<code class="docutils literal notranslate"><span class="pre">zif</span></code>).</p></li>
+<li><p>It is marked as <strong>inactif</strong>, so it remains rigid and is not subject to Monte
+Carlo moves.</p></li>
 <li><p>Atom types and names (Zn C1 C2 H1 C3 H2 H3 N) represent the crystallographic
 composition of ZIF-8.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nb-atoms</span> <span class="pre">2208</span></code> specifies the number of atoms in the framework.</p></li>
-</ul>
-</li>
 </ul>
 <p>The probabilities for translation, rotation, big moves, and insertion/deletion
 (<cite>translation_proba</cite>, <cite>rotation_proba</cite>, <cite>big_move_proba</cite>,
@@ -392,13 +382,15 @@ Probability of attempting a molecule insertion or deletion.</p></li>
 <h2>Residue Definition<a class="headerlink" href="#residue-definition" title="Link to this heading">¶</a></h2>
 <p>A residue block defines the composition and properties of each molecule type.
 Each block starts with <code class="docutils literal notranslate"><span class="pre">begin_residue</span></code> and ends with <code class="docutils literal notranslate"><span class="pre">end_residue</span></code>.</p>
-<p>Residue parameters:
-- <strong>name</strong> (String, required): Residue name (e.g., <code class="docutils literal notranslate"><span class="pre">CO2</span></code>, <code class="docutils literal notranslate"><span class="pre">H2O</span></code>, <code class="docutils literal notranslate"><span class="pre">MOF</span></code>).
-- <strong>state</strong> (String, required): <code class="docutils literal notranslate"><span class="pre">actif</span></code> (active, subject to MC moves) or <code class="docutils literal notranslate"><span class="pre">inactif</span></code> (rigid).
-- <strong>fugacity</strong> (Float, optional, units: bar): Chemical potential of the residue.
-- <strong>types</strong> (List of Integers, required): Atom type IDs for atoms in the residue.
-- <strong>names</strong> (List of Strings, required): Atom names corresponding to atom types.
-- <strong>nb-atoms</strong> (Integer, required): Number of atoms in one residue.</p>
+<p>Residue parameters:</p>
+<ul class="simple">
+<li><p><strong>name</strong> (String, required): Residue name (e.g., <code class="docutils literal notranslate"><span class="pre">CO2</span></code>, <code class="docutils literal notranslate"><span class="pre">H2O</span></code>, <code class="docutils literal notranslate"><span class="pre">MOF</span></code>).</p></li>
+<li><p><strong>state</strong> (String, required): <code class="docutils literal notranslate"><span class="pre">actif</span></code> (active, subject to MC moves) or <code class="docutils literal notranslate"><span class="pre">inactif</span></code> (rigid).</p></li>
+<li><p><strong>fugacity</strong> (Float, optional, units: bar): Chemical potential of the residue.</p></li>
+<li><p><strong>types</strong> (List of Integers, required): Atom type IDs for atoms in the residue.</p></li>
+<li><p><strong>names</strong> (List of Strings, required): Atom names corresponding to atom types.</p></li>
+<li><p><strong>nb-atoms</strong> (Integer, required): Number of atoms in one residue.</p></li>
+</ul>
 </section>
 <section id="notes">
 <h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h2>

@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Credit" href="credit.html"><link rel="prev" title="Unit System" href="unit.html">
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
-        <title>API Documentation - MANIAC-MC v0.3.0-beta documentation</title>
+        <title>Ewald summation - MANIAC-MC v0.3.0-beta documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=acfd86a5" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=580074bf" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -172,7 +172,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
       </label>
     </div>
@@ -195,7 +195,7 @@
 <li class="toctree-l1"><a class="reference internal" href="input.html">Input Files</a></li>
 <li class="toctree-l1"><a class="reference internal" href="build.html">Build and Run</a></li>
 <li class="toctree-l1"><a class="reference internal" href="unit.html">Unit System</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">API Documentation</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Ewald summation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
 </ul>
 
@@ -217,7 +217,7 @@
         </a>
         <div class="content-icon-container">
           <div class="view-this-page">
-  <a class="muted-link" href="_sources/api.rst.txt" title="View this page">
+  <a class="muted-link" href="_sources/ewald.rst.txt" title="View this page">
     <svg><use href="#svg-eye"></use></svg>
     <span class="visually-hidden">View this page</span>
   </a>
@@ -230,13 +230,88 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="api-documentation">
-<h1>API Documentation<a class="headerlink" href="#api-documentation" title="Link to this heading">¶</a></h1>
+          <section id="ewald-summation">
+<h1>Ewald summation<a class="headerlink" href="#ewald-summation" title="Link to this heading">¶</a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<p>This section describes the Ewald summation implementation used for computing
+long-range electrostatic interactions in periodic systems. The code is
+organized into multiple Fortran modules that handle both real-space and
+reciprocal-space contributions.</p>
+<p>The Ewald method splits the Coulomb potential into two components:</p>
+<ol class="arabic simple">
+<li><p>Real-space sum (short-range): rapidly decaying interactions computed
+directly between particles.</p></li>
+<li><p>Reciprocal-space sum (long-range): Fourier-space computation using
+precomputed structure factors and k-vectors.</p></li>
+</ol>
+<p>A self-interaction correction ensures that each particle does not
+spuriously interact with its own periodic images.</p>
+<section id="short-range">
+<h3>Short range<a class="headerlink" href="#short-range" title="Link to this heading">¶</a></h3>
+<p>The short-range (real-space) contribution for a pair of charges <span class="math notranslate nohighlight">\(q_i\)</span> and
+<span class="math notranslate nohighlight">\(q_j\)</span> separated by distance <span class="math notranslate nohighlight">\(r_{ij}\)</span> is given by:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_{ij}^\text{real} = q_i q_j \frac{\text{erfc}(\alpha r_{ij})}{r_{ij}}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\alpha\)</span> is the Ewald screening parameter.</p>
+<p>The total real-space energy for a single molecule or residue is obtained
+by summing over all unique atom pairs within the molecule:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_\text{real} = \sum_{i&lt;j} q_i q_j \frac{\text{erfc}(\alpha r_{ij})}{r_{ij}}\]</div>
+</div>
+<p>Self-interactions (when <span class="math notranslate nohighlight">\(i=j\)</span>) are excluded to prevent spurious
+contributions.</p>
+</section>
+</section>
+<section id="long-range">
+<h2>Long-range<a class="headerlink" href="#long-range" title="Link to this heading">¶</a></h2>
+<p>The long-range (reciprocal-space) contribution is computed in Fourier space.
+For a reciprocal lattice vector <span class="math notranslate nohighlight">\(\mathbf{k}\)</span> with components
+<span class="math notranslate nohighlight">\(k_x, k_y, k_z\)</span>, the structure factor amplitude is:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[A(\mathbf{k}) = \sum_i q_i e^{i \mathbf{k} \cdot \mathbf{r}_i}\]</div>
+</div>
+<p>The reciprocal-space energy is then computed as:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_\text{recip} = \sum_{\mathbf{k} \neq 0} W(\mathbf{k}) \, |A(\mathbf{k})|^2 \, f_\text{sym}(\mathbf{k})\]</div>
+</div>
+<p>where</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(W(\mathbf{k}) = \frac{\exp(-|\mathbf{k}|^2 / 4\alpha^2)}{|\mathbf{k}|^2}\)</span> is the precomputed reciprocal-space weight,</p></li>
+<li><p><span class="math notranslate nohighlight">\(f_\text{sym}(\mathbf{k})\)</span> accounts for symmetry between <span class="math notranslate nohighlight">\(\mathbf{k}\)</span> and <span class="math notranslate nohighlight">\(-\mathbf{k}\)</span>.</p></li>
+</ul>
+<p>All structure factors <span class="math notranslate nohighlight">\(A(\mathbf{k})\)</span> and weights <span class="math notranslate nohighlight">\(W(\mathbf{k})\)</span> are
+precomputed and stored, allowing efficient energy evaluation without repeatedly
+looping over all atoms for each k-vector.</p>
+</section>
+<section id="self-interaction-correction">
+<h2>Self-interaction correction<a class="headerlink" href="#self-interaction-correction" title="Link to this heading">¶</a></h2>
+<p>Each charge interacts with its periodic images, including itself. This
+spurious self-energy is subtracted:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_\text{self} = - \frac{\alpha}{\sqrt{\pi}} \sum_i q_i^2\]</div>
+</div>
+</section>
+<section id="total-energy">
+<h2>Total energy<a class="headerlink" href="#total-energy" title="Link to this heading">¶</a></h2>
+<p>The total Coulomb energy is the sum of the real-space, reciprocal-space, and
+self-interaction terms:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[E_\text{Coulomb} = E_\text{real} + E_\text{recip} + E_\text{self}\]</div>
+</div>
+</section>
 </section>
 
         </article>
@@ -282,8 +357,33 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Ewald summation</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a><ul>
+<li><a class="reference internal" href="#short-range">Short range</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#long-range">Long-range</a></li>
+<li><a class="reference internal" href="#self-interaction-correction">Self-interaction correction</a></li>
+<li><a class="reference internal" href="#total-energy">Total energy</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
@@ -292,5 +392,6 @@
     <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </body>
 </html>
