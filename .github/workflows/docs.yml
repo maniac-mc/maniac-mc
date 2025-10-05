@@ -39,7 +39,7 @@ jobs:
 
       - name: Build documentation
         working-directory: docs
-        run: make html
+        run: ./build.sh
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'

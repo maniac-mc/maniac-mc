@@ -9,7 +9,7 @@
 project = 'MANIAC-MC'
 copyright = '2025, Simon Gravelle'
 author = 'Simon Gravelle'
-release = 'v0.1.2-alpha'
+release = 'v0.3.0-beta'
 
 import os
 breathe_projects = {
