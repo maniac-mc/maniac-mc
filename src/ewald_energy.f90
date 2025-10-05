@@ -414,19 +414,4 @@ contains
 
     end subroutine ComputeIntraResidueRealCoulombEnergySingleMol
 
-    !--------------------------------------------------------------------
-    ! Returns squared modulus of a complex number:
-    !   |z|^2 = Re(z)^2 + Im(z)^2
-    !--------------------------------------------------------------------
-    pure function amplitude_squared(z) result(val)
-
-        ! Input argument
-        complex(real64), intent(in) :: z
-        ! Output rgument
-        real(real64) :: val
-
-        val = real(z*conjg(z), kind=real64)
-
-    end function amplitude_squared
-
 end module ewald_energy

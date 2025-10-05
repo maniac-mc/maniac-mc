@@ -96,5 +96,41 @@ contains
     
     end function present_or_false
 
+    !--------------------------------------------------------------------
+    ! amplitude_squared
+    !
+    ! Purpose:
+    !   Computes the **squared modulus** (magnitude squared) of a complex number.
+    !
+    ! Description:
+    !   For a complex number z = x + i*y, the squared modulus is defined as:
+    !
+    !       |z|^2 = x^2 + y^2 = z * conjg(z)
+    !
+    !   This is commonly used in Fourier/Ewald calculations to compute
+    !   |A(k)|^2 for structure factor amplitudes.
+    !
+    ! Input:
+    !   z : complex(real64)
+    !       Complex number whose squared modulus is to be computed.
+    !
+    ! Output:
+    !   val : real(real64)
+    !       Squared modulus of z, i.e., |z|^2
+    !
+    ! Notes:
+    !   - Pure function with no side effects.
+    !   - Uses `z*conjg(z)` to compute |z|^2 efficiently.
+    !--------------------------------------------------------------------
+    pure function amplitude_squared(z) result(val)
+
+        ! Input argument
+        complex(real64), intent(in) :: z
+        ! Output rgument
+        real(real64) :: val
+
+        val = real(z*conjg(z), kind=real64)
+
+    end function amplitude_squared
 
 end module helper_utils
