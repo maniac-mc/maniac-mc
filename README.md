@@ -50,7 +50,7 @@ be open using:
 firefox build/html/index.html
 ```
 
-The documentation is also visible [here](https://maniac-mc.github.io/maniac-mc/).
+The documentation is also visible on [maniac-mc.github.io](https://maniac-mc.github.io).
 
 ## Examples and tests
 
